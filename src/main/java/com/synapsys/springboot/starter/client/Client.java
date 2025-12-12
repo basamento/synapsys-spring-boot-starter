@@ -53,27 +53,41 @@ public class Client {
      * @param <R>       Type of response body
      * @return          HttpResponseWrapper<R> containing status code + parsed body
      */
-    public <B, R> HttpResponseWrapper<R> makePostCall(String url, B body, Class<R> responseType) {
+    public <B, R> HttpResponseWrapper<R> makeJsonCall(
+            HttpMethod method,
+            String url,
+            B body,
+            Class<R> responseType
+    ) {
         try {
-            String json = mapper.writeValueAsString(body);
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
+                    .header("Content-Type", "application/json");
+
+            if (body != null) {
+                String json = mapper.writeValueAsString(body);
+                builder.method(method.name(), HttpRequest.BodyPublishers.ofString(json));
+            } else {
+                builder.method(method.name(), HttpRequest.BodyPublishers.noBody());
+            }
+
             HttpResponse<String> response = httpClient.send(
-                    request,
+                    builder.build(),
                     HttpResponse.BodyHandlers.ofString()
             );
+
             R parsedBody = null;
-            if (response.body() != null && !response.body().isBlank()) {
+            if (response.body() != null && !response.body().isBlank() && responseType != Void.class) {
                 parsedBody = mapper.readValue(response.body(), responseType);
             }
+
             return new HttpResponseWrapper<>(response.statusCode(), parsedBody);
+
         } catch (Exception e) {
-            log.error("SynapsysNeuronProcessor: POST {} failed → {}", url, e.getMessage());
-            throw new RuntimeException("Failed POST call to: " + url, e);
+            log.error("SynapsysNeuronProcessor: {} {} failed → {}", method, url, e.getMessage());
+            throw new RuntimeException("Failed " + method + " call to: " + url, e);
         }
     }
+
 
 }

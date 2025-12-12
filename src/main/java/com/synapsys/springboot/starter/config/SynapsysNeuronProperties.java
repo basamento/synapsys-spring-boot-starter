@@ -10,12 +10,22 @@ public class SynapsysNeuronProperties {
      */
     private String coreUrl;
 
+    private long heartbeatIntervalMs = 5000;
+
     public String getCoreUrl() {
         return coreUrl;
     }
 
     public void setCoreUrl(String coreUrl) {
         this.coreUrl = coreUrl;
+    }
+
+    public long getHeartbeatIntervalMs() {
+        return heartbeatIntervalMs;
+    }
+
+    public void setHeartbeatIntervalMs(long heartbeatIntervalMs) {
+        this.heartbeatIntervalMs = heartbeatIntervalMs;
     }
 
 }

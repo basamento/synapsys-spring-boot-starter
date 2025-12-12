@@ -12,6 +12,9 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class SynapsysNeuronProcessor implements ApplicationContextAware, InitializingBean {
 
@@ -20,6 +23,7 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
     private ApplicationContext applicationContext;
     private final SynapsysNeuronProperties properties;
     private static final Logger log = LoggerFactory.getLogger(SynapsysNeuronProcessor.class);
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public SynapsysNeuronProcessor(ApplicationContext ctx, SynapsysNeuronProperties properties) {
         this.applicationContext = ctx;
@@ -81,18 +85,40 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
         String name = neuron.getName();
         log.info("SynapsysNeuronProcessor: processing Neuron '{}'", name);
         // 1. register the neuron on the core
-        String registerUrl = this.joinUrl(this.coreUrl, "api/register");
+        String registerUrl = this.joinUrl(this.coreUrl, "api/neurons");
         RegisterNeuronRequestDTO body = new RegisterNeuronRequestDTO(name);
         HttpResponseWrapper<RegisterNeuronResponseDTO> response =
-                this.client.makePostCall(registerUrl, body, RegisterNeuronResponseDTO.class);
+                this.client.makeJsonCall(HttpMethod.POST, registerUrl, body, RegisterNeuronResponseDTO.class);
         int responseCode = response.getStatusCode();
         if (responseCode < 200 || responseCode >= 300) {
             throw new IllegalStateException("SynapsysNeuronProcessor: Core responded with status " + responseCode + " on registering Neuron: " + name);
         } else if (responseCode == 201) {
             log.info("SynapsysNeuronProcessor: successfully registered Neuron {}", neuron);
+            this.startHeartbeat(neuron);
         } else {
             log.info("SynapsysNeuronProcessor: unsuccessfully registered Neuron {}", neuron);
         }
+    }
+
+    private void startHeartbeat(SynapsysNeuronContract neuron) {
+        long interval = properties.getHeartbeatIntervalMs();
+        String name = neuron.getName();
+        String heartbeatUrl = joinUrl(coreUrl, "api/neurons");
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                log.info("SynapsysNeuronProcessor: calling heartbeat for neuron '{}'", name);
+                RegisterNeuronRequestDTO body = new RegisterNeuronRequestDTO(name);
+                Object response = client.makeJsonCall(
+                        HttpMethod.PUT,
+                        heartbeatUrl,
+                        body,
+                        Object.class
+                );
+                // add logs
+            } catch (Exception e) {
+                log.warn("SynapsysNeuronProcessor: heartbeat error for neuron '{}': {}", name, e.getMessage());
+            }
+        }, interval, interval, TimeUnit.MILLISECONDS);
     }
 
     private String joinUrl(String baseUrl, String path) {
