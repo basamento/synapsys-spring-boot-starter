@@ -1,6 +1,7 @@
 package com.synapsys.springboot.starter.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.synapsys.springboot.starter.model.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,8 @@ import java.net.http.HttpResponse;
 public class Client {
 
     private final HttpClient httpClient;
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final ObjectMapper mapper =
+            new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
     private static final Logger log = LoggerFactory.getLogger(Client.class);
 
     public Client() {
