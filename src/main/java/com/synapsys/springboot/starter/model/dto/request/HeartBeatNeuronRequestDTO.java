@@ -1,10 +1,10 @@
-package com.synapsys.springboot.starter.model.dto;
+package com.synapsys.springboot.starter.model.dto.request;
 
-public class RegisterNeuronRequestDTO {
+public class HeartBeatNeuronRequestDTO {
 
     private String name;
 
-    public RegisterNeuronRequestDTO(String name) {
+    public HeartBeatNeuronRequestDTO(String name) {
         this.name = name;
     }
 

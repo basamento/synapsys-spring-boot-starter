@@ -4,8 +4,9 @@ import com.synapsys.springboot.starter.client.Client;
 import com.synapsys.springboot.starter.client.HttpResponseWrapper;
 import com.synapsys.springboot.starter.config.SynapsysNeuronProperties;
 import com.synapsys.springboot.starter.model.HttpMethod;
-import com.synapsys.springboot.starter.model.dto.RegisterNeuronRequestDTO;
-import com.synapsys.springboot.starter.model.dto.dto.RegisterNeuronResponseDTO;
+import com.synapsys.springboot.starter.model.dto.request.HeartBeatNeuronRequestDTO;
+import com.synapsys.springboot.starter.model.dto.request.RegisterNeuronRequestDTO;
+import com.synapsys.springboot.starter.model.dto.response.RegisterNeuronResponseDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -86,7 +87,8 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
         log.info("SynapsysNeuronProcessor: processing Neuron '{}'", name);
         // 1. register the neuron on the core
         String registerUrl = this.joinUrl(this.coreUrl, "api/neurons");
-        RegisterNeuronRequestDTO body = new RegisterNeuronRequestDTO(name);
+        long pingTiming = properties.getHeartbeatIntervalMs();
+        RegisterNeuronRequestDTO body = new RegisterNeuronRequestDTO(name, pingTiming);
         HttpResponseWrapper<RegisterNeuronResponseDTO> response =
                 this.client.makeJsonCall(HttpMethod.POST, registerUrl, body, RegisterNeuronResponseDTO.class);
         int responseCode = response.getStatusCode();
@@ -107,7 +109,7 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 log.info("SynapsysNeuronProcessor: calling heartbeat for neuron '{}'", name);
-                RegisterNeuronRequestDTO body = new RegisterNeuronRequestDTO(name);
+                HeartBeatNeuronRequestDTO body = new HeartBeatNeuronRequestDTO(name);
                 Object response = client.makeJsonCall(
                         HttpMethod.PUT,
                         heartbeatUrl,

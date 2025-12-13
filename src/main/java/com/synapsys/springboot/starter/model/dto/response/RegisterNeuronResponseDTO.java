@@ -1,4 +1,4 @@
-package com.synapsys.springboot.starter.model.dto.dto;
+package com.synapsys.springboot.starter.model.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
