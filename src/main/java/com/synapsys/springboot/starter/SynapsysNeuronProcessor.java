@@ -3,9 +3,11 @@ package com.synapsys.springboot.starter;
 import com.synapsys.springboot.starter.client.Client;
 import com.synapsys.springboot.starter.client.HttpResponseWrapper;
 import com.synapsys.springboot.starter.config.SynapsysNeuronProperties;
+import com.synapsys.springboot.starter.model.NeuronState;
 import com.synapsys.springboot.starter.model.HttpMethod;
 import com.synapsys.springboot.starter.model.dto.request.HeartBeatNeuronRequestDTO;
 import com.synapsys.springboot.starter.model.dto.request.RegisterNeuronRequestDTO;
+import com.synapsys.springboot.starter.model.dto.response.NeuronHeartBeatResponseDTO;
 import com.synapsys.springboot.starter.model.dto.response.RegisterNeuronResponseDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,9 +15,8 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SynapsysNeuronProcessor implements ApplicationContextAware, InitializingBean {
 
@@ -25,6 +26,8 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
     private final SynapsysNeuronProperties properties;
     private static final Logger log = LoggerFactory.getLogger(SynapsysNeuronProcessor.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ExecutorService neuronExecutor = Executors.newCachedThreadPool();
+    private final Map<String, NeuronRuntime> runtimes = new ConcurrentHashMap<>();
 
     public SynapsysNeuronProcessor(ApplicationContext ctx, SynapsysNeuronProperties properties) {
         this.applicationContext = ctx;
@@ -84,6 +87,7 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
 
     private void processNeuron(SynapsysNeuronContract neuron) {
         String name = neuron.getName();
+        runtimes.putIfAbsent(name, new NeuronRuntime());
         log.info("SynapsysNeuronProcessor: processing Neuron '{}'", name);
         // 1. register the neuron on the core
         String registerUrl = this.joinUrl(this.coreUrl, "api/neurons");
@@ -106,17 +110,30 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
         long interval = properties.getHeartbeatIntervalMs();
         String name = neuron.getName();
         String heartbeatUrl = joinUrl(coreUrl, "api/neurons");
+        NeuronRuntime runtime = runtimes.get(name);
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                log.info("SynapsysNeuronProcessor: calling heartbeat for neuron '{}'", name);
-                HeartBeatNeuronRequestDTO body = new HeartBeatNeuronRequestDTO(name);
-                Object response = client.makeJsonCall(
-                        HttpMethod.PUT,
-                        heartbeatUrl,
-                        body,
-                        Object.class
-                );
-                // add logs
+                HeartBeatNeuronRequestDTO body = new HeartBeatNeuronRequestDTO(name, runtime.state.get());
+                HttpResponseWrapper<NeuronHeartBeatResponseDTO> response =
+                        client.makeJsonCall(
+                                HttpMethod.PUT,
+                                heartbeatUrl,
+                                body,
+                                NeuronHeartBeatResponseDTO.class
+                        );
+                NeuronState desiredState = response.getBody().getDesiredState();
+                // only start if core wants it AND we're idle
+                if (desiredState == NeuronState.RUNNING && runtime.state.compareAndSet(NeuronState.IDLE, NeuronState.RUNNING)) {
+                    neuronExecutor.submit(() -> {
+                        try {
+                            neuron.start();
+                        } catch (Exception e) {
+                            log.error("Neuron '{}' failed during start()", name, e);
+                        } finally {
+                            runtime.state.set(NeuronState.IDLE);
+                        }
+                    });
+                }
             } catch (Exception e) {
                 log.warn("SynapsysNeuronProcessor: heartbeat error for neuron '{}': {}", name, e.getMessage());
             }
@@ -132,5 +149,11 @@ public class SynapsysNeuronProcessor implements ApplicationContextAware, Initial
         baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         return baseUrl + path;
     }
+
+    private static class NeuronRuntime {
+        final AtomicReference<NeuronState> state =
+                new AtomicReference<>(NeuronState.IDLE);
+    }
+
 
 }
