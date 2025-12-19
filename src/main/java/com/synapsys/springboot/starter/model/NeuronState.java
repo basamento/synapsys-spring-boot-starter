@@ -6,7 +6,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum NeuronState {
 
     IDLE("idle"),
-    RUNNING("running");
+    RUNNING("running"),
+    STOPPING("stopping");
 
     private final String value;
 
