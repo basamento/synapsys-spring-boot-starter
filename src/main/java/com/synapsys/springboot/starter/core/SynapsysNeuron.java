@@ -1,4 +1,4 @@
-package com.synapsys.springboot.starter;
+package com.synapsys.springboot.starter.core;
 
 import org.springframework.stereotype.Component;
 import java.lang.annotation.ElementType;
@@ -10,4 +10,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SynapsysNeuron {
+    String name() default "";
 }
