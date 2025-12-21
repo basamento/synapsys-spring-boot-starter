@@ -5,13 +5,13 @@ import java.util.List;
 
 public class HeartBeatNeuronsResponseDTO {
 
-    List<NeuronInfoDTO> neuronInfoDTOS;
+    List<NeuronInfoDTO> neurons;
 
-    public List<NeuronInfoDTO> getNeuronInfoDTOS() {
-        return neuronInfoDTOS;
+    public List<NeuronInfoDTO> getNeurons() {
+        return neurons;
     }
 
-    public void setNeuronInfoDTOS(List<NeuronInfoDTO> neuronInfoDTOS) {
-        this.neuronInfoDTOS = neuronInfoDTOS;
+    public void setNeurons(List<NeuronInfoDTO> neurons) {
+        this.neurons = neurons;
     }
 }

@@ -6,12 +6,14 @@ public class HeartBeatNeuronsRequestDTO {
 
     private String applicationName;
     private List<NeuronInfoDTO> neurons;
+    private Long pingTiming;
 
     public HeartBeatNeuronsRequestDTO() { }
 
-    public HeartBeatNeuronsRequestDTO(String applicationName, List<NeuronInfoDTO> neurons) {
+    public HeartBeatNeuronsRequestDTO(String applicationName, List<NeuronInfoDTO> neurons, Long pingTiming) {
         this.applicationName = applicationName;
         this.neurons = neurons;
+        this.pingTiming = pingTiming;
     }
 
     public String getApplicationName() {
@@ -28,6 +30,14 @@ public class HeartBeatNeuronsRequestDTO {
 
     public void setNeurons(List<NeuronInfoDTO> neurons) {
         this.neurons = neurons;
+    }
+
+    public Long getPingTiming() {
+        return pingTiming;
+    }
+
+    public void setPingTiming(Long pingTiming) {
+        this.pingTiming = pingTiming;
     }
 
 }

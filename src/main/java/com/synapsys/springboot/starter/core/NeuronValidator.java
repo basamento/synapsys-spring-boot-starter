@@ -1,5 +1,7 @@
 package com.synapsys.springboot.starter.core;
 
+import com.synapsys.springboot.starter.model.NeuronState;
+import com.synapsys.springboot.starter.model.NeuronType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -38,6 +40,9 @@ public class NeuronValidator {
         SynapsysNeuron annotation = bean.getClass().getAnnotation(SynapsysNeuron.class);
         String resolvedName = resolveNeuronName(annotation, beanName);
         neuron.setName(resolvedName);
+        neuron.setType(NeuronType.ENDLESS);
+        neuron.setCurrentState(NeuronState.IDLE);
+        neuron.setDesiredState(NeuronState.IDLE);
         return neuron;
     }
 

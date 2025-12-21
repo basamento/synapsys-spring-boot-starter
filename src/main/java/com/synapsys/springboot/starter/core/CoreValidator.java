@@ -24,7 +24,7 @@ public class CoreValidator {
             throw new IllegalStateException("SynapsysNeuronProcessor: Missing 'synapsys.neuron.core-url' property in application.yml");
         }
         log.info("SynapsysNeuronProcessor: detected core-url: {}", coreUrl);
-        String testUrl = ClientUtils.joinUrl(coreUrl, "api/test");
+        String testUrl = ClientUtils.joinUrl(coreUrl, "api/health");
         log.info("SynapsysNeuronProcessor: testing connection to Core via {}", testUrl);
         int responseCode;
         try {
