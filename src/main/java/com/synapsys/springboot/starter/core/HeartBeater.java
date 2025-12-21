@@ -4,6 +4,7 @@ import com.synapsys.springboot.starter.client.Client;
 import com.synapsys.springboot.starter.client.HttpResponseWrapper;
 import com.synapsys.springboot.starter.model.HttpMethod;
 import com.synapsys.springboot.starter.model.NeuronState;
+import com.synapsys.springboot.starter.model.NeuronType;
 import com.synapsys.springboot.starter.model.dto.request.HeartBeatNeuronsRequestDTO;
 import com.synapsys.springboot.starter.model.dto.request.NeuronInfoDTO;
 import com.synapsys.springboot.starter.model.dto.response.HeartBeatNeuronsResponseDTO;
@@ -24,7 +25,7 @@ public class HeartBeater {
     private final List<AbstractSynapsysNeuron> neurons;
     private static final Logger log = LoggerFactory.getLogger(HeartBeater.class);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private static final String HEART_BEAT_ENDPOINT = "api/beat";
+    private static final String HEART_BEAT_ENDPOINT = "api/neuron";
     private final String applicationName;
 
     public HeartBeater(List<AbstractSynapsysNeuron> neurons, Long interval, String coreUrl, String applicationName) {
@@ -37,27 +38,37 @@ public class HeartBeater {
 
     public void startHeartBeat() {
         log.info("SynapsysNeuronProcessor: starting heart beating for {} neurons", neurons.size());
-        this.scheduler.scheduleAtFixedRate(this::processNeurons, 0, this.interval, TimeUnit.MICROSECONDS);
+        this.scheduler.scheduleAtFixedRate(this::processNeurons, 0, this.interval, TimeUnit.MILLISECONDS);
     }
 
     private void processNeurons() {
+        try {
+            log.info("SynapsysNeuronProcessor: heartbeat on scheduled time");
+            HeartBeatNeuronsRequestDTO payload = this.getHeartBeatNeuronsRequestDTO();
+            String endpoint = ClientUtils.joinUrl(coreUrl, HEART_BEAT_ENDPOINT);
+            HttpResponseWrapper<HeartBeatNeuronsResponseDTO> response =
+                    this.client.makeJsonCall(HttpMethod.POST, endpoint, payload, HeartBeatNeuronsResponseDTO.class);
+            this.processHeartBeatResponse(response);
+        } catch (Exception e) {
+            log.error("Heartbeat execution failed", e);
+        }
+    }
+
+    private HeartBeatNeuronsRequestDTO getHeartBeatNeuronsRequestDTO() {
         List<NeuronInfoDTO> neuronInfoDTOS = new ArrayList<>();
         for (AbstractSynapsysNeuron neuron : this.neurons) {
             NeuronState currentState = neuron.getCurrentState();
             NeuronState desiredState = neuron.getDesiredState();
-            NeuronInfoDTO neuronInfoDTO = new NeuronInfoDTO(neuron.getName(), currentState, desiredState);
+            NeuronType type = neuron.getType();
+            NeuronInfoDTO neuronInfoDTO = new NeuronInfoDTO(neuron.getName(), type, currentState, desiredState);
             neuronInfoDTOS.add(neuronInfoDTO);
         }
-        HeartBeatNeuronsRequestDTO payload = new HeartBeatNeuronsRequestDTO(applicationName, neuronInfoDTOS);
-        String endpoint = ClientUtils.joinUrl(coreUrl, HEART_BEAT_ENDPOINT);
-        HttpResponseWrapper<HeartBeatNeuronsResponseDTO> response =
-                this.client.makeJsonCall(HttpMethod.POST, endpoint, payload, HeartBeatNeuronsResponseDTO.class);
-        this.processHeartBeatResponse(response);
+        return new HeartBeatNeuronsRequestDTO(applicationName, neuronInfoDTOS, this.interval);
     }
 
     private void processHeartBeatResponse(HttpResponseWrapper<HeartBeatNeuronsResponseDTO> response) {
         HeartBeatNeuronsResponseDTO payload = response.getBody();
-        for (NeuronInfoDTO neuronUpdateState : payload.getNeuronInfoDTOS()) {
+        for (NeuronInfoDTO neuronUpdateState : payload.getNeurons()) {
             AbstractSynapsysNeuron neuron = this.findNeuron(neuronUpdateState);
             NeuronState newDesiredState = this.computeNeuronState(neuron, neuronUpdateState);
             this.handleNeuronExecution(neuron, newDesiredState);
@@ -77,10 +88,6 @@ public class HeartBeater {
         NeuronState current = neuron.getCurrentState();
         NeuronState desired = neuronInfo.getDesiredState();
         String neuronName = neuron.getName();
-        log.info(
-                "Computing neuron state transition [neuron={}, current={}, desired={}]",
-                neuronName, current, desired
-        );
         if (current == NeuronState.IDLE) {
             if (desired == NeuronState.RUNNING) {
                 log.info("Neuron '{}' transitioning IDLE → RUNNING", neuronName);
@@ -112,8 +119,10 @@ public class HeartBeater {
         if (neuron.getCurrentState() == newDesiredState) return;
         neuron.setDesiredState(newDesiredState);
         if (neuron.getCurrentState() == NeuronState.IDLE && newDesiredState == NeuronState.RUNNING) {
+            log.info("Starting neuron {}", neuron.getName());
             neuron.start();
         } else if (neuron.getCurrentState() == NeuronState.RUNNING && newDesiredState == NeuronState.IDLE) {
+            log.info("Stopping neuron {}", neuron.getName());
             neuron.stop();
         }
         neuron.setDesiredState(newDesiredState);

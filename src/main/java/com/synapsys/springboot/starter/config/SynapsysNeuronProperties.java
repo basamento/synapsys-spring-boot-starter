@@ -1,7 +1,8 @@
 package com.synapsys.springboot.starter.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.env.Environment;
 
 @ConfigurationProperties(prefix = "synapsys")
 public class SynapsysNeuronProperties {
@@ -9,12 +10,10 @@ public class SynapsysNeuronProperties {
     private String coreUrl;
     private String applicationName;
     private long heartbeatInterval = 5000;
-    private final String springApplicationName;
+    @Autowired
+    private Environment environment;
 
-    public SynapsysNeuronProperties(
-            @Value("${spring.application.name:}") String springApplicationName) {
-        this.springApplicationName = springApplicationName;
-    }
+    public SynapsysNeuronProperties() {}
 
     public String getCoreUrl() {
         return coreUrl;
@@ -25,9 +24,10 @@ public class SynapsysNeuronProperties {
     }
 
     public String getApplicationName() {
-        return (applicationName != null && !applicationName.isBlank())
-                ? applicationName
-                : springApplicationName;
+        if (applicationName != null && !applicationName.isBlank()) {
+            return applicationName;
+        }
+        return environment.getProperty("spring.application.name");
     }
 
     public void setApplicationName(String applicationName) {

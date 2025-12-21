@@ -1,10 +1,12 @@
 package com.synapsys.springboot.starter.core;
 
 import com.synapsys.springboot.starter.model.NeuronState;
+import com.synapsys.springboot.starter.model.NeuronType;
 
 public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, StatefulNeuron {
 
     private String name;
+    private NeuronType type;
     private NeuronState currentState;
     private NeuronState desiredState;
 
@@ -15,6 +17,14 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
 
     protected void setName(String name) {
         this.name = name;
+    }
+
+    public NeuronType getType() {
+        return type;
+    }
+
+    public void setType(NeuronType type) {
+        this.type = type;
     }
 
     @Override

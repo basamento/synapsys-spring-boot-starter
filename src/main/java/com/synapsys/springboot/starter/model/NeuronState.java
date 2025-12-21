@@ -27,7 +27,7 @@ public enum NeuronState {
                 return state;
             }
         }
-        throw new IllegalArgumentException("Unknown DesiredState: " + value);
+        throw new IllegalArgumentException("Unknown NeuronState: " + value);
     }
 
     @Override
