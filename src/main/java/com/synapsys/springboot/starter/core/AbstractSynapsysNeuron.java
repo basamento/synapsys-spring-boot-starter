@@ -48,8 +48,9 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
     @Override
     public final void start() {
         try {
+            this.currentState = NeuronState.RUNNING;
             run();
-            this.currentState = NeuronState.RUNNING;;
+            this.currentState = NeuronState.IDLE;
         } catch (Exception e) {
             this.currentState = NeuronState.IDLE;
             throw new RuntimeException("Failed to start neuron: " + getName(), e);
