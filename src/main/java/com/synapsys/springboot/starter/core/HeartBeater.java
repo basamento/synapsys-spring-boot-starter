@@ -90,7 +90,7 @@ public class HeartBeater {
         String neuronName = neuron.getName();
         if (current == NeuronState.IDLE) {
             if (desired == NeuronState.RUNNING) {
-                log.info("Neuron '{}' transitioning IDLE → RUNNING", neuronName);
+                log.debug("Neuron '{}' transitioning IDLE → RUNNING", neuronName);
                 return NeuronState.RUNNING;
             }
             if (desired == NeuronState.IDLE) {
@@ -100,8 +100,12 @@ public class HeartBeater {
         }
         if (current == NeuronState.RUNNING) {
             if (desired == NeuronState.IDLE) {
-                log.info("Neuron '{}' transitioning RUNNING → IDLE", neuronName);
+                log.debug("Neuron '{}' transitioning RUNNING → IDLE", neuronName);
                 return NeuronState.IDLE;
+            }
+            if (desired == NeuronState.RUNNING) {
+                log.debug("Neuron '{}' remains RUNNING", neuronName);
+                return NeuronState.RUNNING;
             }
         }
         if (current == NeuronState.STOPPING) {
@@ -125,7 +129,6 @@ public class HeartBeater {
             log.info("Stopping neuron {}", neuron.getName());
             neuron.stop();
         }
-        neuron.setDesiredState(newDesiredState);
     }
 
 }
