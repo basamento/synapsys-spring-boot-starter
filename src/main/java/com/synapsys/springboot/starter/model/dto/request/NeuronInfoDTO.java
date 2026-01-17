@@ -9,6 +9,9 @@ public class NeuronInfoDTO {
     private NeuronType type;
     private NeuronState currentState;
     private NeuronState desiredState;
+    private Long desiredToken;
+    private Long runId;
+    private Long ackToken;
 
     public NeuronInfoDTO() {}
 
@@ -49,6 +52,30 @@ public class NeuronInfoDTO {
 
     public void setDesiredState(NeuronState desiredState) {
         this.desiredState = desiredState;
+    }
+
+    public Long getDesiredToken() {
+        return desiredToken;
+    }
+
+    public void setDesiredToken(Long desiredToken) {
+        this.desiredToken = desiredToken;
+    }
+
+    public Long getRunId() {
+        return runId;
+    }
+
+    public void setRunId(Long runId) {
+        this.runId = runId;
+    }
+
+    public Long getAckToken() {
+        return ackToken;
+    }
+
+    public void setAckToken(Long ackToken) {
+        this.ackToken = ackToken;
     }
 
 }

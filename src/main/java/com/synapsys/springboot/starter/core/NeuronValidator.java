@@ -37,13 +37,25 @@ public class NeuronValidator {
                             + bean.getClass().getName()
             );
         }
+
         SynapsysNeuron annotation = bean.getClass().getAnnotation(SynapsysNeuron.class);
         String resolvedName = resolveNeuronName(annotation, beanName);
         neuron.setName(resolvedName);
-        neuron.setType(NeuronType.ENDLESS);
-        neuron.setCurrentState(NeuronState.IDLE);
-        neuron.setDesiredState(NeuronState.IDLE);
+
+        // Decide type automatically (better than forcing ENDLESS)
+        neuron.setType(resolveType(neuron));
+
+        // Do NOT set desiredState/currentState here; base class initializes to IDLE already.
         return neuron;
+    }
+
+    private static NeuronType resolveType(AbstractSynapsysNeuron neuron) {
+        if (neuron instanceof AbstractProgressiveNeuron) return NeuronType.PROGRESSIVE;
+        if (neuron instanceof AbstractEndlessNeuron) return NeuronType.ENDLESS;
+
+        // fallback if someone extends the old base directly
+        // you can either default, or throw to force correct inheritance
+        return NeuronType.ENDLESS;
     }
 
     private static String resolveNeuronName(SynapsysNeuron annotation, String beanName) {
