@@ -7,7 +7,8 @@ public enum NeuronState {
 
     IDLE("idle"),
     RUNNING("running"),
-    STOPPING("stopping");
+    STOPPING("stopping"),
+    FAILED("failed");
 
     private final String value;
 

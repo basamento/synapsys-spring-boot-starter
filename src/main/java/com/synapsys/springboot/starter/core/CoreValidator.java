@@ -18,25 +18,31 @@ public class CoreValidator {
         this.properties = properties;
     }
 
-    public String validateAndTestCoreUrl() {
+    public String validateCoreUrl() {
         String coreUrl = properties.getCoreUrl();
         if (coreUrl == null || coreUrl.isBlank()) {
-            throw new IllegalStateException("SynapsysNeuronProcessor: Missing 'synapsys.neuron.core-url' property in application.yml");
+            throw new IllegalStateException("SynapsysNeuronProcessor: Missing 'synapsys.core-url' property in application.yml");
         }
         log.info("SynapsysNeuronProcessor: detected core-url: {}", coreUrl);
+        return coreUrl;
+    }
+
+    public boolean testCoreConnection(String coreUrl) {
         String testUrl = ClientUtils.joinUrl(coreUrl, "api/health");
         log.info("SynapsysNeuronProcessor: testing connection to Core via {}", testUrl);
         int responseCode;
         try {
             responseCode = this.client.makeCallAndReturnResponseCode(HttpMethod.GET, testUrl);
         } catch (Exception e) {
-            throw new RuntimeException("SynapsysNeuronProcessor: failed to reach the Nucleus Core at " + testUrl, e);
+            log.warn("SynapsysNeuronProcessor: failed to reach the Nucleus Core at {}", testUrl, e);
+            return false;
         }
         if (responseCode < 200 || responseCode >= 300) {
-            throw new IllegalStateException("SynapsysNeuronProcessor: Core responded with unexpected status on validating Core connection " + responseCode);
+            log.warn("SynapsysNeuronProcessor: Core responded with unexpected status on validating Core connection {}", responseCode);
+            return false;
         }
         log.info("SynapsysNeuronProcessor: successfully connected to Core ({}).", responseCode);
-        return coreUrl;
+        return true;
     }
 
 }

@@ -92,6 +92,11 @@ public class HeartBeater {
     }
 
     private void processHeartBeatResponse(HttpResponseWrapper<HeartBeatNeuronsResponseDTO> response) {
+        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
+            log.warn("Heartbeat rejected by Core with status {}", response.getStatusCode());
+            return;
+        }
+
         HeartBeatNeuronsResponseDTO payload = response.getBody();
         if (payload == null || payload.getNeurons() == null) return;
 

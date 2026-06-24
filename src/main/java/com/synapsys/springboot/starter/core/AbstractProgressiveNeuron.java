@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
 
     private final AtomicReference<Future<?>> runningFuture = new AtomicReference<>(null);
+    private volatile boolean stopRequested = false;
 
     @Override
     public final void handleStart(Long runId, ExecutorService progressiveExecutor) {
@@ -17,13 +18,15 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
             throw new IllegalStateException("Progressive executor is required for neuron " + getName());
         }
 
-        if (getCurrentState() != NeuronState.IDLE) return;
+        if (getCurrentState() != NeuronState.IDLE && getCurrentState() != NeuronState.FAILED) return;
 
         Future<?> existing = runningFuture.get();
         if (existing != null && !existing.isDone()) return;
 
+        stopRequested = false;
         Future<?> f = progressiveExecutor.submit(() -> {
             boolean cancelled = false;
+            boolean failed = false;
             try {
                 setCurrentState(NeuronState.RUNNING);
                 run();
@@ -33,17 +36,20 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
                 cancelled = true;
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
+                failed = true;
+                setCurrentState(NeuronState.FAILED);
                 throw new RuntimeException("Failed to run neuron: " + getName(), e);
             } finally {
-                // If we were cancelled/stopped, call onStop here (worker thread), not heartbeat thread.
-                if (cancelled) {
+                if (cancelled || stopRequested) {
                     try {
                         onStop();
                     } catch (Exception ignored) {
-                        // don't break state cleanup
                     }
                 }
-                setCurrentState(NeuronState.IDLE);
+                if (!failed) {
+                    setCurrentState(NeuronState.IDLE);
+                }
+                stopRequested = false;
                 runningFuture.set(null);
             }
         });
@@ -57,6 +63,7 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
         if (f == null || f.isDone()) return;
 
         // heartbeat thread only updates state + triggers interrupt
+        stopRequested = true;
         setCurrentState(NeuronState.STOPPING);
         f.cancel(true);
     }

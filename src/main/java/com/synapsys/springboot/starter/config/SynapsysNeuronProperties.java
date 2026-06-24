@@ -10,6 +10,7 @@ public class SynapsysNeuronProperties {
     private String coreUrl;
     private String applicationName;
     private long heartbeatInterval = 5000;
+    private boolean failFast = true;
     @Autowired
     private Environment environment;
 
@@ -40,6 +41,14 @@ public class SynapsysNeuronProperties {
 
     public void setHeartbeatInterval(long heartbeatInterval) {
         this.heartbeatInterval = heartbeatInterval;
+    }
+
+    public boolean isFailFast() {
+        return failFast;
+    }
+
+    public void setFailFast(boolean failFast) {
+        this.failFast = failFast;
     }
 
 }

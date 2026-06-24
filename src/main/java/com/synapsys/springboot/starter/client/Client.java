@@ -38,7 +38,7 @@ public class Client {
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             return response.statusCode();
         } catch (Exception e) {
-            log.error("SynapsysNeuronProcessor: error calling {} {} → {}", method, url, e.getMessage());
+            log.error("SynapsysNeuronProcessor: error calling {} {} -> {}", method, url, e.getMessage());
             throw new RuntimeException("Failed to call URL: " + url, e);
         }
     }
@@ -84,7 +84,7 @@ public class Client {
             return new HttpResponseWrapper<>(response.statusCode(), parsedBody);
 
         } catch (Exception e) {
-            log.error("SynapsysNeuronProcessor: {} {} failed → {}", method, url, e.getMessage());
+            log.error("SynapsysNeuronProcessor: {} {} failed -> {}", method, url, e.getMessage());
             throw new RuntimeException("Failed " + method + " call to: " + url, e);
         }
     }
