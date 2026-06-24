@@ -62,7 +62,7 @@ public class ProcessHeartbeatManager {
 
             this.processHeartbeatResponse(response);
         } catch (Exception e) {
-            markCoreUnavailable("Heartbeat failed: " + e.getMessage());
+            markCoreUnavailable("Failed to contact Core");
         }
     }
 
@@ -146,7 +146,7 @@ public class ProcessHeartbeatManager {
     private void markCoreUnavailable(String message) {
         if (coreAvailable) {
             coreAvailable = false;
-            log.warn("{}{}; heartbeat retries will continue", SynapsysLog.PREFIX, message);
+            log.warn("{}{} | heartbeat retries will continue", SynapsysLog.PREFIX, message);
         } else {
             log.debug("{}{}", SynapsysLog.PREFIX, message);
         }
