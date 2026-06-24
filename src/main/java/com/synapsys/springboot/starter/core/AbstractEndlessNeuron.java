@@ -14,21 +14,30 @@ public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
     public final void handleStart(Long runId, ExecutorService progressiveExecutor) {
         // Ignore runId, not meaningful for endless
 
-        if (getCurrentState() == NeuronState.RUNNING) return;
+        if (getCurrentState() == NeuronState.RUNNING || getCurrentState() == NeuronState.STOPPING) return;
 
         stopRequested.set(false);
 
         Thread t = new Thread(() -> {
+            boolean failed = false;
             try {
                 setCurrentState(NeuronState.RUNNING);
                 runForever(() -> stopRequested.get());
             } catch (Exception e) {
-                throw new RuntimeException("Endless neuron crashed: " + getName(), e);
+                if (!stopRequested.get()) {
+                    failed = true;
+                    setCurrentState(NeuronState.FAILED);
+                    throw new RuntimeException("Endless neuron crashed: " + getName(), e);
+                }
             } finally {
-                setCurrentState(NeuronState.IDLE);
+                if (!failed) {
+                    setCurrentState(NeuronState.IDLE);
+                }
+                worker = null;
             }
         }, "synapsys-endless-" + getName());
 
+        t.setDaemon(true);
         worker = t;
         t.start();
     }
@@ -48,8 +57,6 @@ public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to stop endless neuron: " + getName(), e);
-        } finally {
-            setCurrentState(NeuronState.IDLE);
         }
     }
 

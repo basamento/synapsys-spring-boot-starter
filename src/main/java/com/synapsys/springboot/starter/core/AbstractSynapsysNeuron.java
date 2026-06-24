@@ -59,7 +59,7 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
      * Core command ingestion: token-gated.
      * - IDLE means "no new command" => no STOP
      * - STOP is only STOPPING
-     * - We ACK on acceptance (ackToken = desiredToken)
+     * - ACK means the command was accepted, not that execution completed.
      */
     public final synchronized CommandDecision acceptCoreCommand(
             NeuronState coreDesiredState,
@@ -80,7 +80,6 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
             return new CommandDecision(Command.NONE, ackToken, null);
         }
 
-        // Accept the command (ACK on acceptance)
         setDesiredStateInternal(coreDesiredState);
         setDesiredTokenInternal(token);
         setAckTokenInternal(token);
@@ -99,7 +98,6 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
             return new CommandDecision(Command.STOP, token, null);
         }
 
-        // Unknown desired state
         return new CommandDecision(Command.NONE, token, null);
     }
 

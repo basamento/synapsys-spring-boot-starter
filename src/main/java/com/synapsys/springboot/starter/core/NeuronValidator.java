@@ -1,6 +1,5 @@
 package com.synapsys.springboot.starter.core;
 
-import com.synapsys.springboot.starter.model.NeuronState;
 import com.synapsys.springboot.starter.model.NeuronType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
