@@ -1,11 +1,11 @@
 package com.synapsys.springboot.starter.core;
 
-import com.synapsys.springboot.starter.model.NeuronState;
+import com.synapsys.springboot.starter.model.ProcessState;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
+public abstract class AbstractEndlessProcess extends AbstractSynapsysProcess {
 
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
     private volatile Thread worker;
@@ -14,24 +14,24 @@ public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
     public final void handleStart(Long runId, ExecutorService progressiveExecutor) {
         // Ignore runId, not meaningful for endless
 
-        if (getCurrentState() == NeuronState.RUNNING || getCurrentState() == NeuronState.STOPPING) return;
+        if (getCurrentState() == ProcessState.RUNNING || getCurrentState() == ProcessState.STOPPING) return;
 
         stopRequested.set(false);
 
         Thread t = new Thread(() -> {
             boolean failed = false;
             try {
-                setCurrentState(NeuronState.RUNNING);
+                setCurrentState(ProcessState.RUNNING);
                 runForever(() -> stopRequested.get());
             } catch (Exception e) {
                 if (!stopRequested.get()) {
                     failed = true;
-                    setCurrentState(NeuronState.FAILED);
-                    throw new RuntimeException("Endless neuron crashed: " + getName(), e);
+                    setCurrentState(ProcessState.FAILED);
+                    throw new RuntimeException("Endless process crashed: " + getName(), e);
                 }
             } finally {
                 if (!failed) {
-                    setCurrentState(NeuronState.IDLE);
+                    setCurrentState(ProcessState.IDLE);
                 }
                 worker = null;
             }
@@ -44,10 +44,10 @@ public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
 
     @Override
     public final void handleStop() {
-        if (getCurrentState() != NeuronState.RUNNING) return;
+        if (getCurrentState() != ProcessState.RUNNING) return;
 
         try {
-            setCurrentState(NeuronState.STOPPING);
+            setCurrentState(ProcessState.STOPPING);
             stopRequested.set(true);
             onStop();
 
@@ -56,7 +56,7 @@ public abstract class AbstractEndlessNeuron extends AbstractSynapsysNeuron {
                 t.interrupt(); // in case user is blocked on sleep/wait
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to stop endless neuron: " + getName(), e);
+            throw new RuntimeException("Failed to stop endless process: " + getName(), e);
         }
     }
 

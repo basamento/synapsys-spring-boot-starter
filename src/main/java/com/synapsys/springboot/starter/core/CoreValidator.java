@@ -1,7 +1,7 @@
 package com.synapsys.springboot.starter.core;
 
 import com.synapsys.springboot.starter.client.Client;
-import com.synapsys.springboot.starter.config.SynapsysNeuronProperties;
+import com.synapsys.springboot.starter.config.SynapsysProcessProperties;
 import com.synapsys.springboot.starter.model.HttpMethod;
 import com.synapsys.springboot.starter.utils.ClientUtils;
 import org.slf4j.Logger;
@@ -10,38 +10,37 @@ import org.slf4j.LoggerFactory;
 public class CoreValidator {
 
     private final Client client;
-    private final SynapsysNeuronProperties properties;
+    private final SynapsysProcessProperties properties;
     private static final Logger log = LoggerFactory.getLogger(CoreValidator.class);
 
-    public CoreValidator(SynapsysNeuronProperties properties) {
-        this.client = new Client();
+    public CoreValidator(SynapsysProcessProperties properties) {
+        this.client = new Client(properties.getConnectTimeout(), properties.getRequestTimeout());
         this.properties = properties;
     }
 
     public String validateCoreUrl() {
         String coreUrl = properties.getCoreUrl();
         if (coreUrl == null || coreUrl.isBlank()) {
-            throw new IllegalStateException("SynapsysNeuronProcessor: Missing 'synapsys.core-url' property in application.yml");
+            throw new IllegalStateException(SynapsysLog.PREFIX + "Missing 'synapsys.core-url' property");
         }
-        log.info("SynapsysNeuronProcessor: detected core-url: {}", coreUrl);
+        log.debug("{}Core URL configured: {}", SynapsysLog.PREFIX, coreUrl);
         return coreUrl;
     }
 
     public boolean testCoreConnection(String coreUrl) {
         String testUrl = ClientUtils.joinUrl(coreUrl, "api/health");
-        log.info("SynapsysNeuronProcessor: testing connection to Core via {}", testUrl);
+        log.debug("{}Testing Core connection via {}", SynapsysLog.PREFIX, testUrl);
         int responseCode;
         try {
             responseCode = this.client.makeCallAndReturnResponseCode(HttpMethod.GET, testUrl);
         } catch (Exception e) {
-            log.warn("SynapsysNeuronProcessor: failed to reach the Nucleus Core at {}", testUrl, e);
+            log.debug("{}Core health check failed at {}", SynapsysLog.PREFIX, testUrl, e);
             return false;
         }
         if (responseCode < 200 || responseCode >= 300) {
-            log.warn("SynapsysNeuronProcessor: Core responded with unexpected status on validating Core connection {}", responseCode);
+            log.debug("{}Core health check returned status {}", SynapsysLog.PREFIX, responseCode);
             return false;
         }
-        log.info("SynapsysNeuronProcessor: successfully connected to Core ({}).", responseCode);
         return true;
     }
 

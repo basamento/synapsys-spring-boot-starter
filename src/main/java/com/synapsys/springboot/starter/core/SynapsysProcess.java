@@ -9,6 +9,6 @@ import java.lang.annotation.Target;
 @Component
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SynapsysNeuron {
+public @interface SynapsysProcess {
     String name() default "";
 }

@@ -2,8 +2,7 @@ package com.synapsys.springboot.starter.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapsys.springboot.starter.model.HttpMethod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.time.Duration;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,11 +11,18 @@ import java.net.http.HttpResponse;
 public class Client {
 
     private final HttpClient httpClient;
+    private final Duration requestTimeout;
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final Logger log = LoggerFactory.getLogger(Client.class);
 
     public Client() {
-        this.httpClient = HttpClient.newBuilder().build();
+        this(Duration.ofSeconds(2), Duration.ofSeconds(5));
+    }
+
+    public Client(Duration connectTimeout, Duration requestTimeout) {
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(connectTimeout)
+                .build();
+        this.requestTimeout = requestTimeout;
     }
 
     /**
@@ -28,7 +34,9 @@ public class Client {
      */
     public int makeCallAndReturnResponseCode(HttpMethod method, String url) {
         try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(url));
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(requestTimeout);
             HttpRequest request = switch (method) {
                 case GET -> builder.GET().build();
                 case POST -> builder.POST(HttpRequest.BodyPublishers.noBody()).build();
@@ -38,7 +46,6 @@ public class Client {
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             return response.statusCode();
         } catch (Exception e) {
-            log.error("SynapsysNeuronProcessor: error calling {} {} -> {}", method, url, e.getMessage());
             throw new RuntimeException("Failed to call URL: " + url, e);
         }
     }
@@ -62,6 +69,7 @@ public class Client {
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
+                    .timeout(requestTimeout)
                     .header("Content-Type", "application/json");
 
             if (body != null) {
@@ -84,7 +92,6 @@ public class Client {
             return new HttpResponseWrapper<>(response.statusCode(), parsedBody);
 
         } catch (Exception e) {
-            log.error("SynapsysNeuronProcessor: {} {} failed -> {}", method, url, e.getMessage());
             throw new RuntimeException("Failed " + method + " call to: " + url, e);
         }
     }

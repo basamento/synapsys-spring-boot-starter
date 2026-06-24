@@ -1,13 +1,13 @@
 package com.synapsys.springboot.starter.core;
 
-import com.synapsys.springboot.starter.model.NeuronState;
+import com.synapsys.springboot.starter.model.ProcessState;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
 
-public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
+public abstract class AbstractProgressiveProcess extends AbstractSynapsysProcess {
 
     private final AtomicReference<Future<?>> runningFuture = new AtomicReference<>(null);
     private volatile boolean stopRequested = false;
@@ -15,10 +15,10 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
     @Override
     public final void handleStart(Long runId, ExecutorService progressiveExecutor) {
         if (progressiveExecutor == null) {
-            throw new IllegalStateException("Progressive executor is required for neuron " + getName());
+            throw new IllegalStateException("Progressive executor is required for process " + getName());
         }
 
-        if (getCurrentState() != NeuronState.IDLE && getCurrentState() != NeuronState.FAILED) return;
+        if (getCurrentState() != ProcessState.IDLE && getCurrentState() != ProcessState.FAILED) return;
 
         Future<?> existing = runningFuture.get();
         if (existing != null && !existing.isDone()) return;
@@ -28,7 +28,7 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
             boolean cancelled = false;
             boolean failed = false;
             try {
-                setCurrentState(NeuronState.RUNNING);
+                setCurrentState(ProcessState.RUNNING);
                 run();
             } catch (CancellationException ce) {
                 cancelled = true;
@@ -37,8 +37,8 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
                 failed = true;
-                setCurrentState(NeuronState.FAILED);
-                throw new RuntimeException("Failed to run neuron: " + getName(), e);
+                setCurrentState(ProcessState.FAILED);
+                throw new RuntimeException("Failed to run process: " + getName(), e);
             } finally {
                 if (cancelled || stopRequested) {
                     try {
@@ -47,7 +47,7 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
                     }
                 }
                 if (!failed) {
-                    setCurrentState(NeuronState.IDLE);
+                    setCurrentState(ProcessState.IDLE);
                 }
                 stopRequested = false;
                 runningFuture.set(null);
@@ -64,13 +64,13 @@ public abstract class AbstractProgressiveNeuron extends AbstractSynapsysNeuron {
 
         // heartbeat thread only updates state + triggers interrupt
         stopRequested = true;
-        setCurrentState(NeuronState.STOPPING);
+        setCurrentState(ProcessState.STOPPING);
         f.cancel(true);
     }
 
     protected final void checkCancelled() {
         if (Thread.currentThread().isInterrupted()) {
-            throw new CancellationException("Cancelled neuron: " + getName());
+            throw new CancellationException("Cancelled process: " + getName());
         }
     }
 
