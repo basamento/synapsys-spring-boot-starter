@@ -1,0 +1,38 @@
+{
+  "properties": [
+    {
+      "name": "synapsys.core-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the Synapsys Core service used by this worker."
+    },
+    {
+      "name": "synapsys.worker-name",
+      "type": "java.lang.String",
+      "description": "Logical name of the worker application. Defaults to spring.application.name when omitted; required when spring.application.name is not set."
+    },
+    {
+      "name": "synapsys.heartbeat-interval",
+      "type": "java.time.Duration",
+      "description": "Interval between worker heartbeats sent to Synapsys Core.",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "synapsys.fail-fast",
+      "type": "java.lang.Boolean",
+      "description": "Whether application startup should fail when Synapsys Core is unreachable.",
+      "defaultValue": false
+    },
+    {
+      "name": "synapsys.connect-timeout",
+      "type": "java.time.Duration",
+      "description": "Maximum time allowed to establish an HTTP connection to Synapsys Core.",
+      "defaultValue": "2s"
+    },
+    {
+      "name": "synapsys.request-timeout",
+      "type": "java.time.Duration",
+      "description": "Maximum time allowed for a Synapsys Core HTTP request to complete.",
+      "defaultValue": "5s"
+    }
+  ]
+}

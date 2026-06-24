@@ -3,14 +3,16 @@ package com.synapsys.springboot.starter.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum NeuronType {
+public enum ProcessState {
 
-    PROGRESSIVE("progressive"),
-    ENDLESS("endless");
+    IDLE("idle"),
+    RUNNING("running"),
+    STOPPING("stopping"),
+    FAILED("failed");
 
     private final String value;
 
-    NeuronType(String value) {
+    ProcessState(String value) {
         this.value = value;
     }
 
@@ -20,13 +22,13 @@ public enum NeuronType {
     }
 
     @JsonCreator
-    public static NeuronType fromValue(String value) {
-        for (NeuronType state : values()) {
+    public static ProcessState fromValue(String value) {
+        for (ProcessState state : values()) {
             if (state.value.equalsIgnoreCase(value)) {
                 return state;
             }
         }
-        throw new IllegalArgumentException("Unknown NeuronType: " + value);
+        throw new IllegalArgumentException("Unknown ProcessState: " + value);
     }
 
     @Override

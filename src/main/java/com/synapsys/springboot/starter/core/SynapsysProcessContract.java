@@ -1,5 +1,5 @@
 package com.synapsys.springboot.starter.core;
 
-public interface SynapsysNeuronContract {
+public interface SynapsysProcessContract {
     String getName();
 }

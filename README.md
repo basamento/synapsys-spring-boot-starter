@@ -1,2 +1,2 @@
 # synapsys-springboot-starter
-The library that allows springboot app to declare Neurons easely 
+Spring Boot starter for registering a Synapsys worker and its processes with Synapsys Core.

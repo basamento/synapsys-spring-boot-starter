@@ -1,21 +1,21 @@
 package com.synapsys.springboot.starter.core;
 
-import com.synapsys.springboot.starter.model.NeuronState;
-import com.synapsys.springboot.starter.model.NeuronType;
+import com.synapsys.springboot.starter.model.ProcessState;
+import com.synapsys.springboot.starter.model.ProcessType;
 
 import java.util.concurrent.ExecutorService;
 
-public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, StatefulNeuron {
+public abstract class AbstractSynapsysProcess implements SynapsysProcessContract, StatefulProcess {
 
     public enum Command { NONE, START, STOP }
 
     public record CommandDecision(Command command, long token, Long runId) {}
 
     private String name;
-    private NeuronType type;
+    private ProcessType type;
 
-    private volatile NeuronState currentState = NeuronState.IDLE;
-    private volatile NeuronState desiredState = NeuronState.IDLE;
+    private volatile ProcessState currentState = ProcessState.IDLE;
+    private volatile ProcessState desiredState = ProcessState.IDLE;
 
     private volatile long desiredToken = 0;
     private volatile long ackToken = 0;
@@ -29,15 +29,15 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
 
     protected final void setName(String name) { this.name = name; }
 
-    public final NeuronType getType() { return type; }
+    public final ProcessType getType() { return type; }
 
-    public final void setType(NeuronType type) { this.type = type; }
-
-    @Override
-    public final NeuronState getDesiredState() { return desiredState; }
+    public final void setType(ProcessType type) { this.type = type; }
 
     @Override
-    public final NeuronState getCurrentState() { return currentState; }
+    public final ProcessState getDesiredState() { return desiredState; }
+
+    @Override
+    public final ProcessState getCurrentState() { return currentState; }
 
     public final Long getDesiredToken() { return desiredToken; }
 
@@ -45,9 +45,9 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
 
     public final Long getDesiredRunId() { return desiredRunId; }
 
-    protected final void setCurrentState(NeuronState currentState) { this.currentState = currentState; }
+    protected final void setCurrentState(ProcessState currentState) { this.currentState = currentState; }
 
-    protected final void setDesiredStateInternal(NeuronState desiredState) { this.desiredState = desiredState; }
+    protected final void setDesiredStateInternal(ProcessState desiredState) { this.desiredState = desiredState; }
 
     protected final void setDesiredTokenInternal(long desiredToken) { this.desiredToken = desiredToken; }
 
@@ -62,7 +62,7 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
      * - ACK means the command was accepted, not that execution completed.
      */
     public final synchronized CommandDecision acceptCoreCommand(
-            NeuronState coreDesiredState,
+            ProcessState coreDesiredState,
             Long coreDesiredToken,
             Long coreRunId
     ) {
@@ -86,15 +86,15 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
         setDesiredRunIdInternal(coreRunId);
 
         // IDLE is a no-op, never a stop
-        if (coreDesiredState == NeuronState.IDLE) {
+        if (coreDesiredState == ProcessState.IDLE) {
             return new CommandDecision(Command.NONE, token, coreRunId);
         }
 
-        if (coreDesiredState == NeuronState.RUNNING) {
+        if (coreDesiredState == ProcessState.RUNNING) {
             return new CommandDecision(Command.START, token, coreRunId);
         }
 
-        if (coreDesiredState == NeuronState.STOPPING) {
+        if (coreDesiredState == ProcessState.STOPPING) {
             return new CommandDecision(Command.STOP, token, null);
         }
 
@@ -103,7 +103,7 @@ public abstract class AbstractSynapsysNeuron implements SynapsysNeuronContract, 
 
     /**
      * Execute START according to type implementation.
-     * HeartBeater supplies the progressiveExecutor for PROGRESSIVE neurons.
+     * ProcessHeartbeatManager supplies the progressiveExecutor for PROGRESSIVE processes.
      */
     public abstract void handleStart(Long runId, ExecutorService progressiveExecutor);
 

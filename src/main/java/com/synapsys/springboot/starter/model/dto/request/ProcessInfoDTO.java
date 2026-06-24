@@ -1,21 +1,21 @@
 package com.synapsys.springboot.starter.model.dto.request;
 
-import com.synapsys.springboot.starter.model.NeuronState;
-import com.synapsys.springboot.starter.model.NeuronType;
+import com.synapsys.springboot.starter.model.ProcessState;
+import com.synapsys.springboot.starter.model.ProcessType;
 
-public class NeuronInfoDTO {
+public class ProcessInfoDTO {
 
     private String name;
-    private NeuronType type;
-    private NeuronState currentState;
-    private NeuronState desiredState;
+    private ProcessType type;
+    private ProcessState currentState;
+    private ProcessState desiredState;
     private Long desiredToken;
     private Long runId;
     private Long ackToken;
 
-    public NeuronInfoDTO() {}
+    public ProcessInfoDTO() {}
 
-    public NeuronInfoDTO(String name, NeuronType type, NeuronState currentState, NeuronState desiredState) {
+    public ProcessInfoDTO(String name, ProcessType type, ProcessState currentState, ProcessState desiredState) {
         this.name = name;
         this.type = type;
         this.currentState = currentState;
@@ -30,27 +30,27 @@ public class NeuronInfoDTO {
         this.name = name;
     }
 
-    public NeuronType getType() {
+    public ProcessType getType() {
         return type;
     }
 
-    public void setType(NeuronType type) {
+    public void setType(ProcessType type) {
         this.type = type;
     }
 
-    public NeuronState getCurrentState() {
+    public ProcessState getCurrentState() {
         return currentState;
     }
 
-    public void setCurrentState(NeuronState currentState) {
+    public void setCurrentState(ProcessState currentState) {
         this.currentState = currentState;
     }
 
-    public NeuronState getDesiredState() {
+    public ProcessState getDesiredState() {
         return desiredState;
     }
 
-    public void setDesiredState(NeuronState desiredState) {
+    public void setDesiredState(ProcessState desiredState) {
         this.desiredState = desiredState;
     }
 
