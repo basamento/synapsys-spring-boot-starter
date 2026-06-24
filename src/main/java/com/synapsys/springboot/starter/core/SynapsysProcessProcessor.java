@@ -37,7 +37,7 @@ public class SynapsysProcessProcessor implements ApplicationContextAware, Initia
             throw new IllegalStateException(SynapsysLog.PREFIX + "Core is unreachable at startup: " + coreUrl);
         }
         if (!coreReachable) {
-            log.warn("{}Core is unavailable; heartbeat retries will continue", SynapsysLog.PREFIX);
+            log.warn("{} | heartbeat retries will continue", SynapsysLog.PREFIX);
         }
         List<AbstractSynapsysProcess> processes = ProcessValidator.validateAndGetBeans(this.applicationContext);
         String workerName = properties.getWorkerName();
