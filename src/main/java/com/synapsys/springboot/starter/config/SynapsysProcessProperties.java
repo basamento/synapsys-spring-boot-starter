@@ -5,11 +5,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.env.Environment;
 import java.time.Duration;
 
-@ConfigurationProperties(prefix = "synapsys")
+/**
+ * Binds the {@code synapsys.*} configuration.
+ *
+ * <p>{@code ignoreUnknownFields = false} is deliberate: a typo such as
+ * {@code synapsys.heartbeat-interval-ms} would otherwise be accepted and silently
+ * ignored, leaving the worker running on defaults with no indication why.
+ */
+@ConfigurationProperties(prefix = "synapsys", ignoreUnknownFields = false)
 public class SynapsysProcessProperties {
 
     private String coreUrl;
     private String workerName;
+    private String host;
     private Duration heartbeatInterval = Duration.ofSeconds(5);
     private boolean failFast = false;
     private Duration connectTimeout = Duration.ofSeconds(2);
@@ -36,6 +44,18 @@ public class SynapsysProcessProperties {
 
     public void setWorkerName(String workerName) {
         this.workerName = workerName;
+    }
+
+    /**
+     * Host reported to Core. Defaults to the machine hostname; set it explicitly when
+     * the resolved name is meaningless, as with a container id.
+     */
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public Duration getHeartbeatInterval() {

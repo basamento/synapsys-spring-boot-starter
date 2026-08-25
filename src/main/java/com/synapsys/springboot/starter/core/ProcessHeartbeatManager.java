@@ -10,6 +10,8 @@ import com.synapsys.springboot.starter.model.dto.response.HeartbeatProcessesResp
 import com.synapsys.springboot.starter.utils.ClientUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,13 +33,19 @@ public class ProcessHeartbeatManager {
     private final ConcurrentMap<String, ExecutorService> progressiveExecutors = new ConcurrentHashMap<>();
 
     private static final String HEARTBEAT_ENDPOINT = "api/v1/workers/heartbeat";
+
+    /** Identifies which client library this worker runs, so Core does not have to guess. */
+    private static final String FRAMEWORK = "springboot";
+
     private final String workerName;
+    private final String host;
 
     public ProcessHeartbeatManager(
             List<AbstractSynapsysProcess> processes,
             Duration interval,
             String coreUrl,
             String workerName,
+            String host,
             Duration connectTimeout,
             Duration requestTimeout
     ) {
@@ -46,6 +54,24 @@ public class ProcessHeartbeatManager {
         this.coreUrl = coreUrl;
         this.client = new Client(connectTimeout, requestTimeout);
         this.workerName = workerName;
+        this.host = (host == null || host.isBlank()) ? resolveLocalHost() : host;
+    }
+
+    /**
+     * Resolves the machine hostname once at startup. Returns null when it cannot be
+     * determined, in which case Core falls back to the connection's remote address.
+     */
+    private static String resolveLocalHost() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            log.debug("{}Could not resolve local host name", SynapsysLog.PREFIX, e);
+            return null;
+        }
+    }
+
+    public String getHost() {
+        return host;
     }
 
     public void startHeartbeat() {
@@ -80,7 +106,13 @@ public class ProcessHeartbeatManager {
             dto.setRunId(process.getDesiredRunId());
             processInfoDTOS.add(dto);
         }
-        return new HeartbeatProcessesRequestDTO(workerName, processInfoDTOS, this.interval.toMillis());
+        return new HeartbeatProcessesRequestDTO(
+                workerName,
+                FRAMEWORK,
+                host,
+                processInfoDTOS,
+                this.interval.toMillis()
+        );
     }
 
     private void processHeartbeatResponse(HttpResponseWrapper<HeartbeatProcessesResponseDTO> response) {

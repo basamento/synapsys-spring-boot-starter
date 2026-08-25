@@ -51,10 +51,18 @@ public class SynapsysProcessProcessor implements ApplicationContextAware, Initia
                 properties.getHeartbeatInterval(),
                 coreUrl,
                 workerName,
+                properties.getHost(),
                 properties.getConnectTimeout(),
                 properties.getRequestTimeout()
         );
-        log.info("{}Worker '{}' registered {} process(es)", SynapsysLog.PREFIX, workerName, processes.size());
+        // Echo the resolved configuration: makes a mis-set property visible at a glance.
+        log.info("{}Worker '{}' registered {} process(es) | core={} host={} heartbeat={}",
+                SynapsysLog.PREFIX,
+                workerName,
+                processes.size(),
+                coreUrl,
+                this.heartbeatManager.getHost(),
+                properties.getHeartbeatInterval());
         this.heartbeatManager.startHeartbeat();
     }
 

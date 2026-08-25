@@ -11,6 +11,11 @@
       "description": "Logical name of the worker application. Defaults to spring.application.name when omitted; required when spring.application.name is not set."
     },
     {
+      "name": "synapsys.host",
+      "type": "java.lang.String",
+      "description": "Host reported to Synapsys Core. Defaults to the machine hostname; set explicitly when the resolved name is meaningless, as with a container id."
+    },
+    {
       "name": "synapsys.heartbeat-interval",
       "type": "java.time.Duration",
       "description": "Interval between worker heartbeats sent to Synapsys Core.",
