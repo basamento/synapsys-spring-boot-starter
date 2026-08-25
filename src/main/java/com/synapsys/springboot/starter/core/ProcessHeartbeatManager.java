@@ -111,7 +111,7 @@ public class ProcessHeartbeatManager {
                 FRAMEWORK,
                 host,
                 processInfoDTOS,
-                this.interval.toMillis()
+                this.interval.toSeconds()
         );
     }
 
@@ -134,8 +134,6 @@ public class ProcessHeartbeatManager {
                     coreUpdate.getRunId()
             );
 
-            if (decision.command() == AbstractSynapsysProcess.Command.NONE) continue;
-
             if (decision.command() == AbstractSynapsysProcess.Command.START) {
                 log.info("{}Starting process '{}' (type={}, token={}, runId={})",
                         SynapsysLog.PREFIX,
@@ -151,6 +149,11 @@ public class ProcessHeartbeatManager {
 
                 process.handleStop();
             }
+
+            // A token means "the local command handler accepted this command".
+            // Do not acknowledge before handleStart/handleStop: if either throws,
+            // Core must be able to deliver the command again on the next heartbeat.
+            process.acknowledgeCoreCommand(decision.token());
         }
     }
 

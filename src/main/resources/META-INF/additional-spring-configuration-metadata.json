@@ -18,7 +18,7 @@
     {
       "name": "synapsys.heartbeat-interval",
       "type": "java.time.Duration",
-      "description": "Interval between worker heartbeats sent to Synapsys Core.",
+      "description": "Positive whole-second interval between worker heartbeats sent to Synapsys Core.",
       "defaultValue": "5s"
     },
     {

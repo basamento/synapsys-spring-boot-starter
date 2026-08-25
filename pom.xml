@@ -9,12 +9,12 @@
   <version>1.0-SNAPSHOT</version>
 
   <name>synapsys-springboot-starter</name>
+  <description>Spring Boot starter for connecting worker processes to Synapsys Core</description>
   <url>http://www.synapsys.com</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.release>17</maven.compiler.release>
   </properties>
 
   <dependencyManagement>
@@ -22,7 +22,7 @@
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
-        <version>3.2.0</version>
+        <version>3.4.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
