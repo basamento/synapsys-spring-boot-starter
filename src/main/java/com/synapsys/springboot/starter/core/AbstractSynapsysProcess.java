@@ -59,7 +59,7 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
      * Core command ingestion: token-gated.
      * - IDLE means "no new command" => no STOP
      * - STOP is only STOPPING
-     * - ACK means the command was accepted, not that execution completed.
+     * - The caller acknowledges only after its local command handler returns.
      */
     public final synchronized CommandDecision acceptCoreCommand(
             ProcessState coreDesiredState,
@@ -75,6 +75,10 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
             return new CommandDecision(Command.NONE, ackToken, null);
         }
 
+        // runId describes the active execution, not just a new command. Keep it
+        // synchronized even when the command token has already been acknowledged.
+        setDesiredRunIdInternal(coreRunId);
+
         // Duplicate/old command
         if (token <= ackToken) {
             return new CommandDecision(Command.NONE, ackToken, null);
@@ -82,8 +86,6 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
 
         setDesiredStateInternal(coreDesiredState);
         setDesiredTokenInternal(token);
-        setAckTokenInternal(token);
-        setDesiredRunIdInternal(coreRunId);
 
         // IDLE is a no-op, never a stop
         if (coreDesiredState == ProcessState.IDLE) {
@@ -99,6 +101,13 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
         }
 
         return new CommandDecision(Command.NONE, token, null);
+    }
+
+    /** Records a command only after the local handler has accepted it. */
+    public final synchronized void acknowledgeCoreCommand(long token) {
+        if (token > ackToken) {
+            setAckTokenInternal(token);
+        }
     }
 
     /**

@@ -5,8 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ProcessValidator {
 
@@ -18,11 +20,18 @@ public class ProcessValidator {
                 applicationContext.getBeansWithAnnotation(SynapsysProcess.class);
         log.debug("{}Found {} @SynapsysProcess beans", SynapsysLog.PREFIX, beans.size());
         List<AbstractSynapsysProcess> validated = new ArrayList<>();
+        Set<String> processNames = new HashSet<>();
         for (Map.Entry<String, Object> entry : beans.entrySet()) {
             String beanName = entry.getKey();
             Object bean = entry.getValue();
             log.debug("{}Validating process bean: {}", SynapsysLog.PREFIX, bean.getClass().getName());
-            validated.add(validateAndCast(bean, beanName));
+            AbstractSynapsysProcess process = validateAndCast(bean, beanName);
+            if (!processNames.add(process.getName())) {
+                throw new IllegalStateException(
+                        "Duplicate Synapsys process name in this worker: '" + process.getName() + "'"
+                );
+            }
+            validated.add(process);
         }
         return validated;
     }

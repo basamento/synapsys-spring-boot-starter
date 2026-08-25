@@ -29,18 +29,34 @@ public class AbstractSynapsysProcessTest {
 
         AbstractSynapsysProcess.CommandDecision start =
                 process.acceptCoreCommand(ProcessState.RUNNING, 1L, 10L);
+        assertEquals(0L, process.getAckToken().longValue());
+        process.acknowledgeCoreCommand(start.token());
         AbstractSynapsysProcess.CommandDecision duplicate =
                 process.acceptCoreCommand(ProcessState.STOPPING, 1L, null);
         assertEquals(1L, process.getAckToken().longValue());
 
         AbstractSynapsysProcess.CommandDecision stop =
                 process.acceptCoreCommand(ProcessState.STOPPING, 2L, null);
+        process.acknowledgeCoreCommand(stop.token());
 
         assertEquals(AbstractSynapsysProcess.Command.START, start.command());
         assertEquals(AbstractSynapsysProcess.Command.NONE, duplicate.command());
         assertEquals(AbstractSynapsysProcess.Command.STOP, stop.command());
         assertEquals(2L, process.getAckToken().longValue());
         assertEquals(ProcessState.STOPPING, process.getDesiredState());
+    }
+
+    @Test
+    public void activeRunIdSynchronizesAfterCommandWasAcknowledged() {
+        TestProgressiveProcess process = new TestProgressiveProcess();
+        AbstractSynapsysProcess.CommandDecision start =
+                process.acceptCoreCommand(ProcessState.RUNNING, 1L, 10L);
+        process.acknowledgeCoreCommand(start.token());
+
+        process.acceptCoreCommand(ProcessState.IDLE, 1L, null);
+
+        assertEquals(1L, process.getAckToken().longValue());
+        assertEquals(null, process.getDesiredRunId());
     }
 
     @Test
@@ -84,13 +100,14 @@ public class AbstractSynapsysProcessTest {
                 ProcessState.RUNNING
         );
         HeartbeatProcessesRequestDTO payload = new HeartbeatProcessesRequestDTO(
-                "billing-worker", "springboot", "billing-host", List.of(process), 5000L);
+                "billing-worker", "springboot", "billing-host", List.of(process), 5L);
 
         String json = MAPPER.writeValueAsString(payload);
 
         assertTrue(json.contains("\"workerName\""));
         assertTrue(json.contains("\"processes\""));
         assertTrue(json.contains("\"heartbeatInterval\""));
+        assertTrue(json.contains("\"heartbeatInterval\":5"));
         // Core must not have to guess which library and machine this worker runs on.
         assertTrue(json.contains("\"framework\":\"springboot\""));
         assertTrue(json.contains("\"host\":\"billing-host\""));

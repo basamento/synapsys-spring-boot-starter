@@ -30,6 +30,13 @@ public class SynapsysProcessProcessor implements ApplicationContextAware, Initia
 
     @Override
     public void afterPropertiesSet() {
+        if (properties.getHeartbeatInterval().isNegative()
+                || properties.getHeartbeatInterval().isZero()
+                || properties.getHeartbeatInterval().toMillis() % 1000 != 0) {
+            throw new IllegalStateException(
+                    SynapsysLog.PREFIX + "'synapsys.heartbeat-interval' must be a positive whole number of seconds"
+            );
+        }
         // 1 validate connection with core
         String coreUrl = this.coreValidator.validateCoreUrl();
         boolean coreReachable = this.coreValidator.testCoreConnection(coreUrl);
