@@ -5,13 +5,23 @@ import java.util.List;
 public class HeartbeatProcessesRequestDTO {
 
     private String workerName;
+    private String framework;
+    private String host;
     private List<ProcessInfoDTO> processes;
     private Long heartbeatInterval;
 
     public HeartbeatProcessesRequestDTO() { }
 
-    public HeartbeatProcessesRequestDTO(String workerName, List<ProcessInfoDTO> processes, Long heartbeatInterval) {
+    public HeartbeatProcessesRequestDTO(
+            String workerName,
+            String framework,
+            String host,
+            List<ProcessInfoDTO> processes,
+            Long heartbeatInterval
+    ) {
         this.workerName = workerName;
+        this.framework = framework;
+        this.host = host;
         this.processes = processes;
         this.heartbeatInterval = heartbeatInterval;
     }
@@ -22,6 +32,22 @@ public class HeartbeatProcessesRequestDTO {
 
     public void setWorkerName(String workerName) {
         this.workerName = workerName;
+    }
+
+    public String getFramework() {
+        return framework;
+    }
+
+    public void setFramework(String framework) {
+        this.framework = framework;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public List<ProcessInfoDTO> getProcesses() {

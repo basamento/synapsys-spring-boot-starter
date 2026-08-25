@@ -83,14 +83,17 @@ public class AbstractSynapsysProcessTest {
                 ProcessState.IDLE,
                 ProcessState.RUNNING
         );
-        HeartbeatProcessesRequestDTO payload =
-                new HeartbeatProcessesRequestDTO("billing-worker", List.of(process), 5000L);
+        HeartbeatProcessesRequestDTO payload = new HeartbeatProcessesRequestDTO(
+                "billing-worker", "springboot", "billing-host", List.of(process), 5000L);
 
         String json = MAPPER.writeValueAsString(payload);
 
         assertTrue(json.contains("\"workerName\""));
         assertTrue(json.contains("\"processes\""));
         assertTrue(json.contains("\"heartbeatInterval\""));
+        // Core must not have to guess which library and machine this worker runs on.
+        assertTrue(json.contains("\"framework\":\"springboot\""));
+        assertTrue(json.contains("\"host\":\"billing-host\""));
         assertFalse(json.contains("\"ne" + "urons\""));
         assertFalse(json.contains("\"ping" + "Timing\""));
     }
