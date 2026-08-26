@@ -16,6 +16,7 @@ import java.time.Duration;
 public class SynapsysProcessProperties {
 
     private String coreUrl;
+    private String coreToken;
     private String workerName;
     private String host;
     private Duration heartbeatInterval = Duration.ofSeconds(5);
@@ -33,6 +34,14 @@ public class SynapsysProcessProperties {
 
     public void setCoreUrl(String coreUrl) {
         this.coreUrl = coreUrl;
+    }
+
+    public String getCoreToken() {
+        return coreToken;
+    }
+
+    public void setCoreToken(String coreToken) {
+        this.coreToken = coreToken;
     }
 
     public String getWorkerName() {

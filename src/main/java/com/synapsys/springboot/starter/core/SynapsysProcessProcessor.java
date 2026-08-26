@@ -37,6 +37,9 @@ public class SynapsysProcessProcessor implements ApplicationContextAware, Initia
                     SynapsysLog.PREFIX + "'synapsys.heartbeat-interval' must be a positive whole number of seconds"
             );
         }
+        if (properties.getCoreToken() == null || properties.getCoreToken().isBlank()) {
+            log.warn("{}Missing 'synapsys.core-token' property | Core will reject worker heartbeats", SynapsysLog.PREFIX);
+        }
         // 1 validate connection with core
         String coreUrl = this.coreValidator.validateCoreUrl();
         boolean coreReachable = this.coreValidator.testCoreConnection(coreUrl);
@@ -59,6 +62,7 @@ public class SynapsysProcessProcessor implements ApplicationContextAware, Initia
                 coreUrl,
                 workerName,
                 properties.getHost(),
+                properties.getCoreToken(),
                 properties.getConnectTimeout(),
                 properties.getRequestTimeout()
         );

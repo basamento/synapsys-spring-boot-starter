@@ -12,17 +12,23 @@ public class Client {
 
     private final HttpClient httpClient;
     private final Duration requestTimeout;
+    private final String coreToken;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public Client() {
-        this(Duration.ofSeconds(2), Duration.ofSeconds(5));
+        this(Duration.ofSeconds(2), Duration.ofSeconds(5), null);
     }
 
     public Client(Duration connectTimeout, Duration requestTimeout) {
+        this(connectTimeout, requestTimeout, null);
+    }
+
+    public Client(Duration connectTimeout, Duration requestTimeout, String coreToken) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
                 .build();
         this.requestTimeout = requestTimeout;
+        this.coreToken = coreToken;
     }
 
     /**
@@ -37,6 +43,7 @@ public class Client {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(requestTimeout);
+            addAuthentication(builder);
             HttpRequest request = switch (method) {
                 case GET -> builder.GET().build();
                 case POST -> builder.POST(HttpRequest.BodyPublishers.noBody()).build();
@@ -71,6 +78,7 @@ public class Client {
                     .uri(URI.create(url))
                     .timeout(requestTimeout)
                     .header("Content-Type", "application/json");
+            addAuthentication(builder);
 
             if (body != null) {
                 String json = mapper.writeValueAsString(body);
@@ -93,6 +101,12 @@ public class Client {
 
         } catch (Exception e) {
             throw new RuntimeException("Failed " + method + " call to: " + url, e);
+        }
+    }
+
+    private void addAuthentication(HttpRequest.Builder builder) {
+        if (coreToken != null && !coreToken.isBlank()) {
+            builder.header("Authorization", "Bearer " + coreToken);
         }
     }
 
