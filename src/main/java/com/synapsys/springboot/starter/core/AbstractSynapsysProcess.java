@@ -23,6 +23,7 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
     // Only meaningful for PROGRESSIVE, but we keep it here as "last desired runId"
     // so heartbeat can report it (optional).
     private volatile Long desiredRunId = null;
+    private volatile ProcessLogCapture logCapture;
 
     @Override
     public final String getName() { return name; }
@@ -44,6 +45,18 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
     public final Long getAckToken() { return ackToken; }
 
     public final Long getDesiredRunId() { return desiredRunId; }
+
+    final void setLogCapture(ProcessLogCapture logCapture) { this.logCapture = logCapture; }
+
+    protected final ProcessLogCapture.Scope openExecutionLogScope(Long runId) {
+        ProcessLogCapture capture = logCapture;
+        return capture == null ? () -> {} : capture.open(getName(), runId);
+    }
+
+    protected final void captureExecutionException(Throwable throwable) {
+        ProcessLogCapture capture = logCapture;
+        if (capture != null) capture.captureException(throwable);
+    }
 
     protected final void setCurrentState(ProcessState currentState) { this.currentState = currentState; }
 

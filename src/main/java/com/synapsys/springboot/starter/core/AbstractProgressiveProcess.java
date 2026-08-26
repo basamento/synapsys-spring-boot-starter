@@ -27,18 +27,21 @@ public abstract class AbstractProgressiveProcess extends AbstractSynapsysProcess
         Future<?> f = progressiveExecutor.submit(() -> {
             boolean cancelled = false;
             boolean failed = false;
-            try {
+            try (ProcessLogCapture.Scope ignored = openExecutionLogScope(runId)) {
                 setCurrentState(ProcessState.RUNNING);
-                run();
-            } catch (CancellationException ce) {
-                cancelled = true;
-            } catch (InterruptedException ie) {
-                cancelled = true;
-                Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                failed = true;
-                setCurrentState(ProcessState.FAILED);
-                throw new RuntimeException("Failed to run process: " + getName(), e);
+                try {
+                    run();
+                } catch (CancellationException ce) {
+                    cancelled = true;
+                } catch (InterruptedException ie) {
+                    cancelled = true;
+                    Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    failed = true;
+                    setCurrentState(ProcessState.FAILED);
+                    captureExecutionException(e);
+                    throw new RuntimeException("Failed to run process: " + getName(), e);
+                }
             } finally {
                 if (cancelled || stopRequested) {
                     try {

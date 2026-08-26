@@ -6,6 +6,7 @@ import com.synapsys.springboot.starter.model.HttpMethod;
 import com.synapsys.springboot.starter.model.ProcessType;
 import com.synapsys.springboot.starter.model.dto.request.HeartbeatProcessesRequestDTO;
 import com.synapsys.springboot.starter.model.dto.request.ProcessInfoDTO;
+import com.synapsys.springboot.starter.model.dto.request.ProcessLogDTO;
 import com.synapsys.springboot.starter.model.dto.response.HeartbeatProcessesResponseDTO;
 import com.synapsys.springboot.starter.utils.ClientUtils;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ public class ProcessHeartbeatManager {
     private final String coreUrl;
     private final Client client;
     private final List<AbstractSynapsysProcess> processes;
+    private final ProcessLogCapture logCapture = new ProcessLogCapture();
     private volatile boolean coreAvailable = true;
 
     private static final Logger log = LoggerFactory.getLogger(ProcessHeartbeatManager.class);
@@ -56,6 +58,8 @@ public class ProcessHeartbeatManager {
         this.client = new Client(connectTimeout, requestTimeout, coreToken);
         this.workerName = workerName;
         this.host = (host == null || host.isBlank()) ? resolveLocalHost() : host;
+        this.logCapture.install();
+        this.processes.forEach(process -> process.setLogCapture(this.logCapture));
     }
 
     /**
@@ -80,20 +84,29 @@ public class ProcessHeartbeatManager {
     }
 
     private void processProcesses() {
+        List<ProcessLogDTO> logBatch = logCapture.drain(100, 96_000);
+        HttpResponseWrapper<HeartbeatProcessesResponseDTO> response;
         try {
-            HeartbeatProcessesRequestDTO payload = this.getHeartbeatProcessesRequestDTO();
+            HeartbeatProcessesRequestDTO payload = this.getHeartbeatProcessesRequestDTO(logBatch);
             String endpoint = ClientUtils.joinUrl(coreUrl, HEARTBEAT_ENDPOINT);
 
-            HttpResponseWrapper<HeartbeatProcessesResponseDTO> response =
-                    this.client.makeJsonCall(HttpMethod.POST, endpoint, payload, HeartbeatProcessesResponseDTO.class);
-
-            this.processHeartbeatResponse(response);
+            response = this.client.makeJsonCall(HttpMethod.POST, endpoint, payload, HeartbeatProcessesResponseDTO.class);
         } catch (Exception e) {
+            logCapture.requeueFirst(logBatch);
             markCoreUnavailable("Failed to contact Core");
+            return;
         }
+
+        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
+            logCapture.requeueFirst(logBatch);
+            markCoreUnavailable("Heartbeat rejected by Core with status " + response.getStatusCode());
+            return;
+        }
+        markCoreAvailable();
+        this.processHeartbeatResponse(response);
     }
 
-    private HeartbeatProcessesRequestDTO getHeartbeatProcessesRequestDTO() {
+    private HeartbeatProcessesRequestDTO getHeartbeatProcessesRequestDTO(List<ProcessLogDTO> logs) {
         List<ProcessInfoDTO> processInfoDTOS = new ArrayList<>();
         for (AbstractSynapsysProcess process : this.processes) {
             ProcessInfoDTO dto = new ProcessInfoDTO(
@@ -107,22 +120,18 @@ public class ProcessHeartbeatManager {
             dto.setRunId(process.getDesiredRunId());
             processInfoDTOS.add(dto);
         }
-        return new HeartbeatProcessesRequestDTO(
+        HeartbeatProcessesRequestDTO request = new HeartbeatProcessesRequestDTO(
                 workerName,
                 FRAMEWORK,
                 host,
                 processInfoDTOS,
                 this.interval.toSeconds()
         );
+        request.setLogs(logs);
+        return request;
     }
 
     private void processHeartbeatResponse(HttpResponseWrapper<HeartbeatProcessesResponseDTO> response) {
-        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
-            markCoreUnavailable("Heartbeat rejected by Core with status " + response.getStatusCode());
-            return;
-        }
-        markCoreAvailable();
-
         HeartbeatProcessesResponseDTO payload = response.getBody();
         if (payload == null || payload.getProcesses() == null) return;
 
