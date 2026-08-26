@@ -6,6 +6,11 @@
       "description": "Base URL of the Synapsys Core service used by this worker."
     },
     {
+      "name": "synapsys.core-token",
+      "type": "java.lang.String",
+      "description": "Bearer token used to authenticate requests from this worker to Synapsys Core. Store it in a secret rather than committing it to source control."
+    },
+    {
       "name": "synapsys.worker-name",
       "type": "java.lang.String",
       "description": "Logical name of the worker application. Defaults to spring.application.name when omitted; required when spring.application.name is not set."

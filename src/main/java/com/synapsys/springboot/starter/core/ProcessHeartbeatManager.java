@@ -46,13 +46,14 @@ public class ProcessHeartbeatManager {
             String coreUrl,
             String workerName,
             String host,
+            String coreToken,
             Duration connectTimeout,
             Duration requestTimeout
     ) {
         this.processes = processes;
         this.interval = interval;
         this.coreUrl = coreUrl;
-        this.client = new Client(connectTimeout, requestTimeout);
+        this.client = new Client(connectTimeout, requestTimeout, coreToken);
         this.workerName = workerName;
         this.host = (host == null || host.isBlank()) ? resolveLocalHost() : host;
     }

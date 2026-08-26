@@ -14,7 +14,11 @@ public class CoreValidator {
     private static final Logger log = LoggerFactory.getLogger(CoreValidator.class);
 
     public CoreValidator(SynapsysProcessProperties properties) {
-        this.client = new Client(properties.getConnectTimeout(), properties.getRequestTimeout());
+        this.client = new Client(
+                properties.getConnectTimeout(),
+                properties.getRequestTimeout(),
+                properties.getCoreToken()
+        );
         this.properties = properties;
     }
 
