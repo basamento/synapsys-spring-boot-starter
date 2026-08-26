@@ -12,22 +12,23 @@ public abstract class AbstractEndlessProcess extends AbstractSynapsysProcess {
 
     @Override
     public final void handleStart(Long runId, ExecutorService progressiveExecutor) {
-        // Ignore runId, not meaningful for endless
-
         if (getCurrentState() == ProcessState.RUNNING || getCurrentState() == ProcessState.STOPPING) return;
 
         stopRequested.set(false);
 
         Thread t = new Thread(() -> {
             boolean failed = false;
-            try {
+            try (ProcessLogCapture.Scope ignored = openExecutionLogScope(runId)) {
                 setCurrentState(ProcessState.RUNNING);
-                runForever(() -> stopRequested.get());
-            } catch (Exception e) {
-                if (!stopRequested.get()) {
-                    failed = true;
-                    setCurrentState(ProcessState.FAILED);
-                    throw new RuntimeException("Endless process crashed: " + getName(), e);
+                try {
+                    runForever(() -> stopRequested.get());
+                } catch (Exception e) {
+                    if (!stopRequested.get()) {
+                        failed = true;
+                        setCurrentState(ProcessState.FAILED);
+                        captureExecutionException(e);
+                        throw new RuntimeException("Endless process crashed: " + getName(), e);
+                    }
                 }
             } finally {
                 if (!failed) {

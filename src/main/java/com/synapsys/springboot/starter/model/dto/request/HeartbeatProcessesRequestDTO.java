@@ -8,6 +8,7 @@ public class HeartbeatProcessesRequestDTO {
     private String framework;
     private String host;
     private List<ProcessInfoDTO> processes;
+    private List<ProcessLogDTO> logs;
     private Long heartbeatInterval;
 
     public HeartbeatProcessesRequestDTO() { }
@@ -56,6 +57,14 @@ public class HeartbeatProcessesRequestDTO {
 
     public void setProcesses(List<ProcessInfoDTO> processes) {
         this.processes = processes;
+    }
+
+    public List<ProcessLogDTO> getLogs() {
+        return logs;
+    }
+
+    public void setLogs(List<ProcessLogDTO> logs) {
+        this.logs = logs;
     }
 
     public Long getHeartbeatInterval() {
