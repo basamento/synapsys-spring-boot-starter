@@ -1,6 +1,12 @@
 {
   "properties": [
     {
+      "name": "synapsys.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether this worker connects to Synapsys Core. Set to false to keep the starter on the classpath without heartbeats or console capture, as in integration tests.",
+      "defaultValue": true
+    },
+    {
       "name": "synapsys.core-url",
       "type": "java.lang.String",
       "description": "Base URL of the Synapsys Core service used by this worker."

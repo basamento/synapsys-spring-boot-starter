@@ -15,12 +15,18 @@ public class ProcessLogCaptureTest {
         ProcessLogCapture capture = new ProcessLogCapture();
         capture.install();
 
-        try (ProcessLogCapture.Scope ignored = capture.open("demo", 42L)) {
-            System.out.println("hello stdout");
-            System.err.println("hello stderr");
+        List<ProcessLogDTO> logs;
+        try {
+            try (ProcessLogCapture.Scope ignored = capture.open("demo", 42L)) {
+                System.out.println("hello stdout");
+                System.err.println("hello stderr");
+            }
+            logs = capture.drain(10, 10_000);
+        } finally {
+            // Replacing System.out is global: leaving it installed leaks into other tests.
+            capture.uninstall();
         }
 
-        List<ProcessLogDTO> logs = capture.drain(10, 10_000);
         assertEquals(2, logs.size());
         assertEquals("demo", logs.get(0).getProcessName());
         assertEquals(Long.valueOf(42L), logs.get(0).getRunId());
