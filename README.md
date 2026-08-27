@@ -127,7 +127,10 @@ machine.
 | Signing key | `830D96AA49CBCA70` |
 | Fingerprint | `5EB374E850516689CAD23998830D96AA49CBCA70` |
 
-## One-time setup on a new machine
+## Local setup
+
+Only needed to build or sign a release on your own machine. Routine releases run
+in CI and require none of this.
 
 ### 1. JDK
 
@@ -216,67 +219,79 @@ Create `~/.m2/settings.xml` (`C:\Users\<you>\.m2\settings.xml` on Windows):
 The id must be `central` — it matches `<publishingServerId>` in the pom. This
 file lives outside the repository; never copy it into the project.
 
+## Repository secrets
+
+The release pipeline needs four secrets, under Settings > Secrets and variables
+> Actions:
+
+| Secret | Value |
+| --- | --- |
+| `MAVEN_GPG_PRIVATE_KEY` | Contents of the armored private key export, `-----BEGIN` line included |
+| `MAVEN_GPG_PASSPHRASE` | Passphrase for that key |
+| `CENTRAL_USERNAME` | Token username from central.sonatype.com |
+| `CENTRAL_PASSWORD` | Token password from central.sonatype.com |
+
+These are only needed once per repository, not per release.
+
 ## Releasing a version
 
-### 1. Set the version
+Releases are cut by pushing a tag. The pom holds the version; the tag has to
+agree with it, and the pipeline refuses to build if it does not.
 
-Edit `<version>` in `pom.xml`. Releases use plain versions (`0.2.0`), not
-`-SNAPSHOT`. Commit the change.
+### 1. Bump the version in the pom
 
-### 2. Build and sign locally
+Edit `<version>` in `pom.xml` (plain versions such as `0.2.0`, never
+`-SNAPSHOT`), commit, and get it onto `main`.
 
-```
-./mvnw -Prelease verify
-```
-
-```
-.\mvnw.cmd -Prelease verify
-```
-
-A passphrase prompt appears for the GPG key. This uploads nothing. Success
-means `target/` contains three jars and four `.asc` signatures (jar, sources,
-javadoc, pom).
-
-Optionally verify the signatures the way Central will:
+### 2. Tag and push
 
 ```
-gpg --verify target/synapsys-spring-boot-starter-<version>.jar.asc \
-            target/synapsys-spring-boot-starter-<version>.jar
+git checkout main && git pull
+git tag -a v0.2.0 -m "Release 0.2.0"
+git push origin v0.2.0
 ```
 
-### 3. Upload
+The `Release` workflow then checks that the tagged commit is reachable from
+`main` and that the tag matches the pom version, builds, signs, and uploads the
+bundle to Central. Both checks run before the build, so a mistake costs seconds.
 
-```
-./mvnw -Prelease deploy
-```
+### 3. Publish
 
-This stages a bundle on Central and stops. `autoPublish` is `false`, so
-**nothing is public yet**. The output prints a `deploymentId`.
+The upload is staged, not live. Open
+[central.sonatype.com](https://central.sonatype.com/publishing/deployments),
+review the validation output, then either:
 
-### 4. Inspect and publish
-
-Go to `central.sonatype.com` → **Deployments**, find the deployment, and review
-the validation results and any warnings.
-
-Then either:
-
-- **Publish** — the version goes live and appears in Central search within
-  ~15 minutes, and on `repo1.maven.org` shortly after.
-- **Drop** — discards the staged bundle. A version number is only consumed once
-  published, so dropping frees it for reuse.
+- **Publish** — the version goes live, reaching `repo1.maven.org` within about
+  30 minutes and search a few hours later.
+- **Drop** — discards the bundle. A version number is only consumed once
+  published, so it can be reused.
 
 > **Publishing is irreversible.** A published version can never be replaced,
-> corrected, or removed. Fix problems before this step, not after.
+> corrected, or removed.
 
-### 5. Tag the release
+### If a check fails
+
+`Tag does not match pom version` — the pom was not bumped, or the tag was
+mistyped. Delete the tag, fix, and tag again:
 
 ```
-git tag -a v<version> -m "Release <version>"
+git tag -d v0.2.0 && git push origin :refs/tags/v0.2.0
 ```
 
+`Tagged commit is not reachable from main` — the tag was cut from a branch.
+Merge to `main` first.
+
+## Releasing from a local machine
+
+Only needed to test the release build, or if CI is unavailable. Requires the
+one-time setup above (JDK, GnuPG, imported signing key, `settings.xml`).
+
 ```
-git push origin v<version>
+./mvnw -Prelease clean verify     # builds and signs, uploads nothing
+./mvnw -Prelease deploy           # uploads a staged bundle
 ```
+
+`clean` matters: a stale `target/` can carry jars built from earlier code.
 
 ## Troubleshooting
 
@@ -306,6 +321,17 @@ keyrings. On Windows, Git's bundled gpg reads `~/.gnupg` while Gpg4win reads
 **`UnrecognizedPropertyException` during publish** — the
 `central-publishing-maven-plugin` version is older than Central's API. Bump
 `central-publishing-plugin.version` in `pom.xml` to the latest.
+
+**CI signing fails with a pinentry or "no secret key" error** — GnuPG in a
+non-interactive runner may need loopback mode. Add this to the `maven-gpg-plugin`
+configuration in the `release` profile:
+
+```xml
+<gpgArguments>
+  <arg>--pinentry-mode</arg>
+  <arg>loopback</arg>
+</gpgArguments>
+```
 
 **Exported key file is unreadable on Windows** — PowerShell's `>` redirect
 writes UTF-16, which GnuPG cannot parse. Use `--output` instead:
