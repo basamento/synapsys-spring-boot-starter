@@ -1,0 +1,69 @@
+name: Release
+
+# Releases are cut by pushing a tag. The pom is the source of truth for the
+# version; the tag must agree with it.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      # Both guards run before the build: a bad tag should cost seconds, not a
+      # full compile-and-sign cycle.
+      - name: Tag must be on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tagged commit $GITHUB_SHA is not reachable from main."
+            exit 1
+          fi
+
+      - name: Tag must match the pom version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          POM="$(./mvnw -B -q -DforceStdout help:evaluate -Dexpression=project.version)"
+          echo "tag=$TAG pom=$POM"
+          if [ "$TAG" != "$POM" ]; then
+            echo "::error::Tag $TAG does not match pom version $POM. Bump the pom, or retag."
+            exit 1
+          fi
+
+      - name: Build, sign and upload to Central
+        run: ./mvnw -B -Prelease deploy
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+      - name: Next step
+        run: |
+          {
+            echo "### Uploaded to Central"
+            echo ""
+            echo "The deployment is staged, not published. Review it at"
+            echo "<https://central.sonatype.com/publishing/deployments> and press"
+            echo "**Publish** to make \`$GITHUB_REF_NAME\` live, or **Drop** to discard it."
+          } >> "$GITHUB_STEP_SUMMARY"

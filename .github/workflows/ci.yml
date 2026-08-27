@@ -1,12 +1,26 @@
 name: CI
 
+# Runs on main and on pull requests only. Triggering on every branch push as
+# well would double the minutes spent on any branch that has a PR open.
 on:
   push:
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE', 'NOTICE']
   pull_request:
+    paths-ignore: ['**.md', 'LICENSE', 'NOTICE']
+
+permissions:
+  contents: read
+
+# Superseded runs are cancelled rather than left to finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -14,4 +28,4 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - run: bash ./mvnw -B clean test
+      - run: ./mvnw -B clean test
