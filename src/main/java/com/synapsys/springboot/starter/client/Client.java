@@ -1,5 +1,6 @@
 package com.synapsys.springboot.starter.client;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapsys.springboot.starter.model.HttpMethod;
 import java.time.Duration;
@@ -13,7 +14,13 @@ public class Client {
     private final HttpClient httpClient;
     private final Duration requestTimeout;
     private final String coreToken;
-    private static final ObjectMapper mapper = new ObjectMapper();
+    /**
+     * Unknown response fields are ignored on purpose. Core is versioned independently
+     * of this client: a field added to a Core response must never break workers that
+     * were built against an older contract.
+     */
+    private static final ObjectMapper mapper = new ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
     public Client() {
         this(Duration.ofSeconds(2), Duration.ofSeconds(5), null);

@@ -3,6 +3,7 @@ package com.synapsys.springboot.starter.core;
 import com.synapsys.springboot.starter.client.Client;
 import com.synapsys.springboot.starter.client.HttpResponseWrapper;
 import com.synapsys.springboot.starter.model.HttpMethod;
+import com.synapsys.springboot.starter.model.ProcessState;
 import com.synapsys.springboot.starter.model.ProcessType;
 import com.synapsys.springboot.starter.model.dto.request.HeartbeatProcessesRequestDTO;
 import com.synapsys.springboot.starter.model.dto.request.ProcessInfoDTO;
@@ -48,14 +49,12 @@ public class ProcessHeartbeatManager {
             String coreUrl,
             String workerName,
             String host,
-            String coreToken,
-            Duration connectTimeout,
-            Duration requestTimeout
+            Client client
     ) {
         this.processes = processes;
         this.interval = interval;
         this.coreUrl = coreUrl;
-        this.client = new Client(connectTimeout, requestTimeout, coreToken);
+        this.client = client;
         this.workerName = workerName;
         this.host = (host == null || host.isBlank()) ? resolveLocalHost() : host;
         this.logCapture.install();
@@ -80,7 +79,19 @@ public class ProcessHeartbeatManager {
     }
 
     public void startHeartbeat() {
-        this.scheduler.scheduleAtFixedRate(this::processProcesses, 0, this.interval.toMillis(), TimeUnit.MILLISECONDS);
+        this.scheduler.scheduleAtFixedRate(this::runHeartbeatTick, 0, this.interval.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * scheduleAtFixedRate cancels a periodic task permanently as soon as one run throws.
+     * Nothing may escape this method, or the worker goes silent for the rest of its life.
+     */
+    private void runHeartbeatTick() {
+        try {
+            processProcesses();
+        } catch (Throwable t) {
+            log.error("{}Unexpected heartbeat failure | heartbeat retries will continue", SynapsysLog.PREFIX, t);
+        }
     }
 
     private void processProcesses() {
@@ -93,13 +104,13 @@ public class ProcessHeartbeatManager {
             response = this.client.makeJsonCall(HttpMethod.POST, endpoint, payload, HeartbeatProcessesResponseDTO.class);
         } catch (Exception e) {
             logCapture.requeueFirst(logBatch);
-            markCoreUnavailable("Failed to contact Core");
+            markCoreUnavailable("Failed to contact Core", e);
             return;
         }
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             logCapture.requeueFirst(logBatch);
-            markCoreUnavailable("Heartbeat rejected by Core with status " + response.getStatusCode());
+            markCoreUnavailable("Heartbeat rejected by Core with status " + response.getStatusCode(), null);
             return;
         }
         markCoreAvailable();
@@ -137,34 +148,46 @@ public class ProcessHeartbeatManager {
 
         for (ProcessInfoDTO coreUpdate : payload.getProcesses()) {
             AbstractSynapsysProcess process = this.findProcess(coreUpdate);
-
-            AbstractSynapsysProcess.CommandDecision decision = process.acceptCoreCommand(
-                    coreUpdate.getDesiredState(),
-                    coreUpdate.getDesiredToken(),
-                    coreUpdate.getRunId()
-            );
-
-            if (decision.command() == AbstractSynapsysProcess.Command.START) {
-                log.info("{}Starting process '{}' (type={}, token={}, runId={})",
-                        SynapsysLog.PREFIX,
-                        process.getName(), process.getType(), decision.token(), decision.runId());
-
-                ExecutorService exec = executorFor(process);
-                process.handleStart(decision.runId(), exec);
-
-            } else if (decision.command() == AbstractSynapsysProcess.Command.STOP) {
-                log.info("{}Stopping process '{}' (type={}, token={})",
-                        SynapsysLog.PREFIX,
-                        process.getName(), process.getType(), decision.token());
-
-                process.handleStop();
+            if (process == null) continue;
+            try {
+                this.applyCoreCommand(process, coreUpdate);
+            } catch (Exception e) {
+                // One misbehaving process must not stop commands reaching the others,
+                // nor end the heartbeat.
+                log.error("{}Command handling failed for process '{}'", SynapsysLog.PREFIX, process.getName(), e);
+                process.setCurrentState(ProcessState.FAILED);
             }
-
-            // A token means "the local command handler accepted this command".
-            // Do not acknowledge before handleStart/handleStop: if either throws,
-            // Core must be able to deliver the command again on the next heartbeat.
-            process.acknowledgeCoreCommand(decision.token());
         }
+    }
+
+    private void applyCoreCommand(AbstractSynapsysProcess process, ProcessInfoDTO coreUpdate) {
+        AbstractSynapsysProcess.CommandDecision decision = process.acceptCoreCommand(
+                coreUpdate.getDesiredState(),
+                coreUpdate.getDesiredToken(),
+                coreUpdate.getRunId()
+        );
+
+        if (decision.command() == AbstractSynapsysProcess.Command.START) {
+            log.info("{}Starting process '{}' (type={}, token={}, runId={})",
+                    SynapsysLog.PREFIX,
+                    process.getName(), process.getType(), decision.token(), decision.runId());
+
+            ExecutorService exec = executorFor(process);
+            process.handleStart(decision.runId(), exec);
+
+        } else if (decision.command() == AbstractSynapsysProcess.Command.STOP) {
+            log.info("{}Stopping process '{}' (type={}, token={})",
+                    SynapsysLog.PREFIX,
+                    process.getName(), process.getType(), decision.token());
+
+            process.handleStop();
+        }
+
+        // Acknowledging means "the local handler accepted this command". It is reached
+        // only when handleStart/handleStop returned normally: if either throws, the
+        // caller records the failure and leaves the token unacknowledged, so Core
+        // redelivers on the next heartbeat.
+        process.acknowledgeCoreCommand(decision.token());
     }
 
     private ExecutorService executorFor(AbstractSynapsysProcess process) {
@@ -188,12 +211,14 @@ public class ProcessHeartbeatManager {
         );
     }
 
-    private void markCoreUnavailable(String message) {
+    private void markCoreUnavailable(String message, Exception cause) {
         if (coreAvailable) {
             coreAvailable = false;
-            log.warn("{}{} | heartbeat retries will continue", SynapsysLog.PREFIX, message);
+            // The cause is logged with the transition: without it "Failed to contact Core"
+            // gives no way to tell a DNS failure from a timeout or a TLS problem.
+            log.warn("{}{} | heartbeat retries will continue", SynapsysLog.PREFIX, message, cause);
         } else {
-            log.debug("{}{}", SynapsysLog.PREFIX, message);
+            log.debug("{}{}", SynapsysLog.PREFIX, message, cause);
         }
     }
 
@@ -204,16 +229,24 @@ public class ProcessHeartbeatManager {
         }
     }
 
+    /**
+     * Returns null when Core reports a process this worker does not declare, for example
+     * after a rename. Skipping is correct: the worker cannot act on it either way.
+     */
     private AbstractSynapsysProcess findProcess(ProcessInfoDTO processInfo) {
-        return this.processes.stream()
+        AbstractSynapsysProcess match = this.processes.stream()
                 .filter(n -> n.getName().equals(processInfo.getName()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No process found with name: " + processInfo.getName()
-                ));
+                .orElse(null);
+        if (match == null) {
+            log.warn("{}Core sent a command for unknown process '{}' | ignoring",
+                    SynapsysLog.PREFIX, processInfo.getName());
+        }
+        return match;
     }
 
     public void shutdown() {
+        logCapture.uninstall();
         scheduler.shutdownNow();
         progressiveExecutors.values().forEach(ExecutorService::shutdownNow);
         progressiveExecutors.clear();
