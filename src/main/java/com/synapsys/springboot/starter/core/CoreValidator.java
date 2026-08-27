@@ -13,12 +13,8 @@ public class CoreValidator {
     private final SynapsysProcessProperties properties;
     private static final Logger log = LoggerFactory.getLogger(CoreValidator.class);
 
-    public CoreValidator(SynapsysProcessProperties properties) {
-        this.client = new Client(
-                properties.getConnectTimeout(),
-                properties.getRequestTimeout(),
-                properties.getCoreToken()
-        );
+    public CoreValidator(SynapsysProcessProperties properties, Client client) {
+        this.client = client;
         this.properties = properties;
     }
 

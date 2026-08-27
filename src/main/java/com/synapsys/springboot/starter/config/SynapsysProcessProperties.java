@@ -15,6 +15,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "synapsys", ignoreUnknownFields = false)
 public class SynapsysProcessProperties {
 
+    private boolean enabled = true;
     private String coreUrl;
     private String coreToken;
     private String workerName;
@@ -27,6 +28,19 @@ public class SynapsysProcessProperties {
     private Environment environment;
 
     public SynapsysProcessProperties() {}
+
+    /**
+     * Whether this worker connects to Core at all. Set to {@code false} to keep the
+     * starter on the classpath without heartbeats or console capture, which is what
+     * integration tests and local runs usually want.
+     */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getCoreUrl() {
         return coreUrl;

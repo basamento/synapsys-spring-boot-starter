@@ -20,6 +20,8 @@ public final class ProcessLogCapture {
     private static final int MAX_QUEUE_SIZE = 10_000;
     private static final int MAX_LINE_LENGTH = 16_000;
     private static volatile ProcessLogCapture active;
+    private static PrintStream originalOut;
+    private static PrintStream originalErr;
     private static final ThreadLocal<ExecutionContext> CURRENT = new ThreadLocal<>();
 
     private final Object queueLock = new Object();
@@ -28,10 +30,34 @@ public final class ProcessLogCapture {
     public void install() {
         synchronized (ProcessLogCapture.class) {
             if (active == null) {
+                originalOut = System.out;
+                originalErr = System.err;
                 System.setOut(new TeePrintStream(System.out, "stdout"));
                 System.setErr(new TeePrintStream(System.err, "stderr"));
             }
             active = this;
+        }
+    }
+
+    /**
+     * Restores the console streams this capture replaced. Replacing System.out is global
+     * and process-wide, so it must be undone when the owning context shuts down, or a
+     * later context inherits streams that feed a dead queue.
+     */
+    public void uninstall() {
+        synchronized (ProcessLogCapture.class) {
+            if (active != this) return;
+            active = null;
+            // Only restore streams still owned by this class: something installed later
+            // must not be clobbered.
+            if (System.out instanceof TeePrintStream && originalOut != null) {
+                System.setOut(originalOut);
+            }
+            if (System.err instanceof TeePrintStream && originalErr != null) {
+                System.setErr(originalErr);
+            }
+            originalOut = null;
+            originalErr = null;
         }
     }
 
@@ -51,7 +77,9 @@ public final class ProcessLogCapture {
         synchronized (queueLock) {
             while (!queue.isEmpty() && result.size() < maxEntries) {
                 ProcessLogDTO next = queue.peekFirst();
-                int nextBytes = next.getMessage() == null ? 0 : next.getMessage().length();
+                int nextBytes = next.getMessage() == null
+                        ? 0
+                        : next.getMessage().getBytes(StandardCharsets.UTF_8).length;
                 if (!result.isEmpty() && bytes + nextBytes > maxBytes) break;
                 result.add(queue.removeFirst());
                 bytes += nextBytes;
