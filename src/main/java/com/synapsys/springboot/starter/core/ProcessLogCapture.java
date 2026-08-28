@@ -98,13 +98,20 @@ public final class ProcessLogCapture {
     }
 
     private void capture(String source, String line) {
-        if (line == null || line.isEmpty()) return;
+        if (line == null) return;
         ExecutionContext context = CURRENT.get();
         if (context == null || context.capture != this || context.runId == null) return;
 
         String message = line.length() > MAX_LINE_LENGTH
                 ? line.substring(0, MAX_LINE_LENGTH) + "…"
                 : line;
+        // Core validates the logs array atomically: a single entry whose trimmed
+        // message is empty fails the whole heartbeat with 400, and the rejected batch
+        // is requeued at the front of the queue, so it is retried forever and no Core
+        // command is ever applied again. The guard is on the truncated value because
+        // that is the one Core sees.
+        if (isBlankToCore(message)) return;
+
         ProcessLogDTO entry = new ProcessLogDTO(
                 context.processName,
                 context.runId,
@@ -125,6 +132,20 @@ public final class ProcessLogCapture {
         StringWriter output = new StringWriter();
         throwable.printStackTrace(new PrintWriter(output));
         for (String line : output.toString().split("\\R")) capture("stderr", line);
+    }
+
+    /**
+     * Whether Core would read this message as blank. Not the same predicate as
+     * String.isBlank(): Character.isWhitespace deliberately excludes the non-breaking
+     * spaces (U+00A0, U+2007, U+202F) and U+0085, all of which Go's strings.TrimSpace
+     * does trim. Matching Go's set here keeps a line of non-breaking spaces from
+     * wedging the heartbeat the way a line of ordinary spaces did.
+     */
+    private static boolean isBlankToCore(String value) {
+        return value.codePoints().allMatch(codePoint ->
+                Character.isWhitespace(codePoint)
+                        || Character.isSpaceChar(codePoint)
+                        || codePoint == 0x0085);
     }
 
     @FunctionalInterface
