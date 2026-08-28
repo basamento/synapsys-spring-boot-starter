@@ -1,7 +1,7 @@
 # Synapsys Spring Boot Starter
 
-Register a Spring Boot application as a [Synapsys](https://docs.synapsys.jmzworks.it)
-worker, and let Synapsys Core start and stop its background processes remotely.
+Register a Spring Boot application as a Synapsys worker, and let Synapsys Core
+start and stop its background processes remotely.
 
 Your application declares processes as beans. The starter reports them to Core on a
 heartbeat, receives start/stop commands on the response, and runs them on isolated
@@ -100,11 +100,6 @@ Both types accept an optional `onStop()` override for cleanup.
 
 Unknown `synapsys.*` keys fail startup rather than being ignored, so a typo
 surfaces immediately.
-
-## Documentation
-
-Full documentation, including the heartbeat protocol and the process state machine,
-is at [docs.synapsys.jmzworks.it](https://docs.synapsys.jmzworks.it).
 
 ## License
 
