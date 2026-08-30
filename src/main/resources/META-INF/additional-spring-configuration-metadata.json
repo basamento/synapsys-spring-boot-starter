@@ -49,6 +49,18 @@
       "type": "java.time.Duration",
       "description": "Maximum time allowed for a Synapsys Core HTTP request to complete.",
       "defaultValue": "5s"
+    },
+    {
+      "name": "synapsys.shutdown-timeout",
+      "type": "java.time.Duration",
+      "description": "How long shutdown waits for running processes to become terminal before reporting them and finishing. Business logic that ignores its stop signal is never killed.",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "synapsys.capture-console",
+      "type": "java.lang.Boolean",
+      "description": "Whether console output produced inside a running process is streamed to Synapsys Core. Set to false to keep remote process control while leaving System.out and System.err untouched.",
+      "defaultValue": true
     }
   ]
 }

@@ -19,6 +19,11 @@ public final class ProcessLogCapture {
 
     private static final int MAX_QUEUE_SIZE = 10_000;
     private static final int MAX_LINE_LENGTH = 16_000;
+    /**
+     * A process that never emits a newline must not accumulate an unbounded partial
+     * line. Four bytes per character is the worst case for UTF-8.
+     */
+    private static final int MAX_PARTIAL_BYTES = MAX_LINE_LENGTH * 4;
     private static volatile ProcessLogCapture active;
     private static PrintStream originalOut;
     private static PrintStream originalErr;
@@ -210,6 +215,13 @@ public final class ProcessLogCapture {
                     line.reset();
                 } else if (buffer[i] != '\r') {
                     line.write(buffer[i]);
+                    // A body printing without ever emitting a newline would otherwise
+                    // grow this buffer until the application runs out of memory.
+                    if (line.size() >= MAX_PARTIAL_BYTES) {
+                        ProcessLogCapture current = active;
+                        if (current != null) current.capture(source, line.toString(StandardCharsets.UTF_8));
+                        line.reset();
+                    }
                 }
             }
         }

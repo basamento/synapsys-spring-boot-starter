@@ -9,6 +9,16 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
 
     public enum Command { NONE, START, STOP }
 
+    /**
+     * What a command handler did with the command it was given.
+     *
+     * <p>{@link #DEFERRED} means the command was understood but cannot be applied yet: a
+     * start arriving while the previous execution is still stopping. The caller must
+     * leave the token unacknowledged so Core redelivers it on a later heartbeat.
+     * Acknowledging a deferred start as a no-op loses that run forever.
+     */
+    public enum Outcome { HANDLED, DEFERRED }
+
     public record CommandDecision(Command command, long token, Long runId) {}
 
     private String name;
@@ -20,8 +30,9 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
     private volatile long desiredToken = 0;
     private volatile long ackToken = 0;
 
-    // Only meaningful for PROGRESSIVE, but we keep it here as "last desired runId"
-    // so heartbeat can report it (optional).
+    // The run id Core has assigned to the active execution. Reported on every beat and
+    // attached to every captured log line, so it must only ever describe the execution
+    // that is actually running.
     private volatile Long desiredRunId = null;
     private volatile ProcessLogCapture logCapture;
 
@@ -70,49 +81,49 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
 
     /**
      * Core command ingestion: token-gated.
-     * - IDLE means "no new command" => no STOP
-     * - STOP is only STOPPING
-     * - The caller acknowledges only after its local command handler returns.
+     * <ul>
+     *   <li>IDLE means "no new command", never a stop.</li>
+     *   <li>STOP is only STOPPING.</li>
+     *   <li>The caller acknowledges only after its local command handler reports HANDLED.</li>
+     * </ul>
      */
     public final synchronized CommandDecision acceptCoreCommand(
             ProcessState coreDesiredState,
             Long coreDesiredToken,
             Long coreRunId
     ) {
-        long token = coreDesiredToken == null ? 0L : coreDesiredToken;
-
-        // If core doesn't send tokens yet, you can choose to treat it as "always new"
-        // but that defeats idempotency. Better: require token.
-        if (token == 0L && coreDesiredToken == null) {
-            // safest behavior: do nothing
+        // A command with no token cannot be de-duplicated, so it is not a command.
+        if (coreDesiredToken == null) {
             return new CommandDecision(Command.NONE, ackToken, null);
         }
+        long token = coreDesiredToken;
 
-        // runId describes the active execution, not just a new command. Keep it
-        // synchronized even when the command token has already been acknowledged.
-        setDesiredRunIdInternal(coreRunId);
-
-        // Duplicate/old command
+        // Duplicate or stale command. The run id still describes the active execution,
+        // so it is tracked even once the token has been acknowledged.
         if (token <= ackToken) {
+            setDesiredRunIdInternal(coreRunId);
             return new CommandDecision(Command.NONE, ackToken, null);
         }
 
         setDesiredStateInternal(coreDesiredState);
         setDesiredTokenInternal(token);
 
-        // IDLE is a no-op, never a stop
-        if (coreDesiredState == ProcessState.IDLE) {
-            return new CommandDecision(Command.NONE, token, coreRunId);
-        }
-
         if (coreDesiredState == ProcessState.RUNNING) {
+            // The new run id is deliberately NOT adopted here. A start that arrives while
+            // the previous run is still stopping is deferred, and replacing the active
+            // run's id would attach its remaining output to an execution that has not
+            // begun. handleStart adopts it when it accepts the command.
             return new CommandDecision(Command.START, token, coreRunId);
         }
+
+        setDesiredRunIdInternal(coreRunId);
 
         if (coreDesiredState == ProcessState.STOPPING) {
             return new CommandDecision(Command.STOP, token, null);
         }
 
+        // IDLE, and any desired state a future Core invents, are acknowledged and acted
+        // on in no way at all.
         return new CommandDecision(Command.NONE, token, null);
     }
 
@@ -126,11 +137,31 @@ public abstract class AbstractSynapsysProcess implements SynapsysProcessContract
     /**
      * Execute START according to type implementation.
      * ProcessHeartbeatManager supplies the progressiveExecutor for PROGRESSIVE processes.
+     *
+     * @return {@link Outcome#HANDLED} when the process is running, or already was;
+     *         {@link Outcome#DEFERRED} when the previous execution has not finished.
      */
-    public abstract void handleStart(Long runId, ExecutorService progressiveExecutor);
+    public abstract Outcome handleStart(Long runId, ExecutorService progressiveExecutor);
 
     /**
-     * Execute STOP according to type implementation.
+     * Execute STOP according to type implementation. A stop for a process that is not
+     * running is an idempotent handled no-op.
      */
-    public abstract void handleStop();
+    public abstract Outcome handleStop();
+
+    /**
+     * Whether a body, or a cleanup hook belonging to it, has not yet returned.
+     *
+     * <p>{@code currentState} alone is not enough: business logic that ignores
+     * cancellation stays alive after the state has gone back to idle, and a replacement
+     * execution must not overlap it.
+     */
+    public abstract boolean isInFlight();
+
+    /**
+     * Waits for any in-flight execution to finish.
+     *
+     * @return true when nothing is left running, false when the wait timed out.
+     */
+    public abstract boolean settle(long timeoutMillis);
 }

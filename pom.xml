@@ -6,7 +6,7 @@
 
   <groupId>org.basamento.synapsys</groupId>
   <artifactId>synapsys-spring-boot-starter</artifactId>
-  <version>0.1.2</version>
+  <version>0.2.0</version>
   <packaging>jar</packaging>
 
   <name>synapsys-spring-boot-starter</name>

@@ -24,6 +24,8 @@ public class SynapsysProcessProperties {
     private boolean failFast = false;
     private Duration connectTimeout = Duration.ofSeconds(2);
     private Duration requestTimeout = Duration.ofSeconds(5);
+    private Duration shutdownTimeout = Duration.ofSeconds(10);
+    private boolean captureConsole = true;
     @Autowired
     private Environment environment;
 
@@ -117,6 +119,41 @@ public class SynapsysProcessProperties {
         if (requestTimeout != null) {
             this.requestTimeout = requestTimeout;
         }
+    }
+
+    /**
+     * How long shutdown waits for running processes to become terminal before it gives
+     * up, reports them and finishes.
+     *
+     * <p>Business logic that ignores its stop signal is never killed: the starter cannot
+     * safely stop a thread it does not own. Such a process is reported by name and left
+     * running, and no replacement execution can overlap it. The application owns the
+     * decision to wait longer or exit.
+     */
+    public Duration getShutdownTimeout() {
+        return shutdownTimeout;
+    }
+
+    public void setShutdownTimeout(Duration shutdownTimeout) {
+        if (shutdownTimeout != null) {
+            this.shutdownTimeout = shutdownTimeout;
+        }
+    }
+
+    /**
+     * Whether console output produced inside a running process is streamed to Core.
+     *
+     * <p>Separate from {@code synapsys.enabled} on purpose: capture is a data path out
+     * of the application, and a user must be able to switch it off without also losing
+     * remote control of their processes. Setting it to {@code false} leaves
+     * {@code System.out} and {@code System.err} completely untouched.
+     */
+    public boolean isCaptureConsole() {
+        return captureConsole;
+    }
+
+    public void setCaptureConsole(boolean captureConsole) {
+        this.captureConsole = captureConsole;
     }
 
 }

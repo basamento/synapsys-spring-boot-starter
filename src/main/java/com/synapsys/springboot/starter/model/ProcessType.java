@@ -19,6 +19,7 @@ public enum ProcessType {
         return value;
     }
 
+    /** Returns null for an unrecognised value, for the reason given on ProcessState. */
     @JsonCreator
     public static ProcessType fromValue(String value) {
         for (ProcessType state : values()) {
@@ -26,7 +27,7 @@ public enum ProcessType {
                 return state;
             }
         }
-        throw new IllegalArgumentException("Unknown ProcessType: " + value);
+        return null;
     }
 
     @Override

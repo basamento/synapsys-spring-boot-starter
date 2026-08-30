@@ -1,5 +1,6 @@
 package com.synapsys.springboot.starter.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapsys.springboot.starter.model.HttpMethod;
@@ -11,7 +12,7 @@ import java.net.http.HttpResponse;
 
 public class Client {
 
-    private final HttpClient httpClient;
+    private final java.net.http.HttpClient httpClient;
     private final Duration requestTimeout;
     private final String coreToken;
     /**
@@ -33,13 +34,21 @@ public class Client {
     public Client(Duration connectTimeout, Duration requestTimeout, String coreToken) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
+                // Explicit rather than relying on the JDK default: a redirect would
+                // replay the Authorization header at whatever host the response names,
+                // which is a credential handed to a third party.
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
         this.requestTimeout = requestTimeout;
         this.coreToken = coreToken;
     }
 
     /**
-     * Makes an HTTP call and returns only the response status code.
+     * Makes an unauthenticated HTTP call and returns only the response status code.
+     *
+     * <p>Used for the Core health probe, which Core serves without authentication. The
+     * bearer token is not sent to an endpoint that does not ask for one: every place a
+     * credential travels is a place it can leak.
      *
      * @param method GET, POST, PUT, DELETE, etc.
      * @param url    The URL to call
@@ -50,7 +59,6 @@ public class Client {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(requestTimeout);
-            addAuthentication(builder);
             HttpRequest request = switch (method) {
                 case GET -> builder.GET().build();
                 case POST -> builder.POST(HttpRequest.BodyPublishers.noBody()).build();
@@ -59,20 +67,28 @@ public class Client {
             };
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             return response.statusCode();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to call URL: " + url, e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to call URL: " + url, e);
         }
     }
 
     /**
-     * Executes a POST call with a JSON body and returns both status code and parsed response body.
+     * Executes an authenticated call with a JSON body and returns both the status code
+     * and the parsed response body.
      *
-     * @param url       URL to call
-     * @param body      Request body (will be serialized as JSON)
+     * <p>A body that cannot be parsed yields a null body rather than an exception: the
+     * caller distinguishes "could not reach Core" from "Core answered with something
+     * this client cannot read", and reports the two differently.
+     *
+     * @param url          URL to call
+     * @param body         Request body (will be serialized as JSON)
      * @param responseType Class of expected response body
-     * @param <B>       Type of request body
-     * @param <R>       Type of response body
-     * @return          HttpResponseWrapper<R> containing status code + parsed body
+     * @param <B>          Type of request body
+     * @param <R>          Type of response body
+     * @return HttpResponseWrapper&lt;R&gt; containing status code + parsed body
      */
     public <B, R> HttpResponseWrapper<R> makeJsonCall(
             HttpMethod method,
@@ -80,10 +96,12 @@ public class Client {
             B body,
             Class<R> responseType
     ) {
+        HttpResponse<String> response;
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(requestTimeout)
+                    .header("Accept", "application/json")
                     .header("Content-Type", "application/json");
             addAuthentication(builder);
 
@@ -94,21 +112,28 @@ public class Client {
                 builder.method(method.name(), HttpRequest.BodyPublishers.noBody());
             }
 
-            HttpResponse<String> response = httpClient.send(
-                    builder.build(),
-                    HttpResponse.BodyHandlers.ofString()
-            );
-
-            R parsedBody = null;
-            if (response.body() != null && !response.body().isBlank() && responseType != Void.class) {
-                parsedBody = mapper.readValue(response.body(), responseType);
-            }
-
-            return new HttpResponseWrapper<>(response.statusCode(), parsedBody);
-
+            response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed " + method + " call to: " + url, e);
         } catch (Exception e) {
+            // The token is never part of this message: the URL carries no credential and
+            // the exception cause is a transport failure, not a request dump.
             throw new RuntimeException("Failed " + method + " call to: " + url, e);
         }
+
+        R parsedBody = null;
+        if (response.body() != null && !response.body().isBlank() && responseType != Void.class) {
+            try {
+                parsedBody = mapper.readValue(response.body(), responseType);
+            } catch (JsonProcessingException e) {
+                // Left null on purpose. The caller treats an unreadable 2xx body as a
+                // protocol failure, requeues its logs and acknowledges nothing.
+                parsedBody = null;
+            }
+        }
+
+        return new HttpResponseWrapper<>(response.statusCode(), parsedBody);
     }
 
     private void addAuthentication(HttpRequest.Builder builder) {
