@@ -228,3 +228,5 @@ Capture works by replacing `System.out` and `System.err` with tees. That is a
 
 Apache License 2.0 — see [LICENSE](LICENSE).
 
+Copyright 2026 Julian Marzoli (Basamento).
+
