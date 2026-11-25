@@ -54,7 +54,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.release>17</maven.compiler.release>
 
-    <spring-boot.version>3.4.0</spring-boot.version>
+    <spring-boot.version>3.5.16</spring-boot.version>
+    <jackson-bom.version>2.21.7</jackson-bom.version>
     <junit.version>4.13.2</junit.version>
 
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -68,6 +69,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Keep Jackson on a supported security-patched line until the Spring BOM catches up. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
